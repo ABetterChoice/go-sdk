@@ -1,0 +1,5 @@
+.idea
+size_coverage.out
+main
+main/
+*.exe
