@@ -36,6 +36,6 @@ func (e emptyDMPClient) BatchGetDMPTagResult(ctx context.Context,
 
 var (
 	// MockEmptyDMPClient TODO
-	// Deprecated: 模拟 dmp client，测试专用
+	// Deprecated: for test
 	MockEmptyDMPClient = &emptyDMPClient{}
 )

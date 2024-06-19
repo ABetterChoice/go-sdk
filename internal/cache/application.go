@@ -1,4 +1,4 @@
-// Package cache 本地缓存具体实现
+// Package cache Local cache implementation
 package cache
 
 import (

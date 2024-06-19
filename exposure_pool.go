@@ -71,16 +71,16 @@ func maxParallelism() int {
 	return defaultMaxParallelism
 }
 
-// initExposureConsumer 初始化曝光上报消费者
+// initExposureConsumer Initialize exposure reporting consumer
 func initExposureConsumer() {
 	for i := 0; i < maxParallelism(); i++ {
 		go watchData()
 	}
 }
 
-// asyncExposureExperiments 异步推送
-// 记录曝光数据，如果没有开启被动曝光，则可以使用 Exposure API 进行手动曝光
-// 手动曝光可以避免被动曝光可能带来的过度曝光问题，用户可以通过手动曝光，将用户命中的实验进行曝光上报
+// asyncExposureExperiments asynchronous push
+// Record exposure data. If passive exposure is not enabled, you can use the Exposure API for manual exposure
+// Manual exposure can avoid the overexposure problem that may be caused by passive exposure. Users can use manual exposure to report the exposure of the experiment they hit
 func asyncExposureExperiments(projectID string, list *ExperimentList,
 	exposureType protoc_event_server.ExposureType) error {
 	select {
@@ -95,7 +95,7 @@ func asyncExposureExperiments(projectID string, list *ExperimentList,
 	}
 }
 
-// asyncExposureExperimentEvent 异步推送
+// asyncExposureExperimentEvent async exposure
 func asyncExposureExperimentEvent(projectID string, list *ExperimentList,
 	latency time.Duration, optionStr string, err error) error {
 	select {
@@ -112,7 +112,7 @@ func asyncExposureExperimentEvent(projectID string, list *ExperimentList,
 	}
 }
 
-// asyncExposureRemoteConfig 异步推送
+// asyncExposureRemoteConfig async exposure
 func asyncExposureRemoteConfig(projectID string, configResult *ConfigResult,
 	exposureType protoc_event_server.ExposureType) error {
 	select {
@@ -127,7 +127,7 @@ func asyncExposureRemoteConfig(projectID string, configResult *ConfigResult,
 	}
 }
 
-// asyncExposureRemoteConfigEvent 异步推送
+// asyncExposureRemoteConfigEvent async exposure
 func asyncExposureRemoteConfigEvent(projectID string, configResult *ConfigResult,
 	latency time.Duration, optionStr string, err error) error {
 	select {
@@ -152,7 +152,7 @@ func watchData() {
 
 func logExposure() {
 	defer func() {
-		recoverErr := recover() // 防止第三方实现的监控上报插件 panic
+		recoverErr := recover() // Prevent third-party monitoring reporting plugins from panicking
 		if recoverErr != nil {
 			body := make([]byte, 1<<10)
 			runtime.Stack(body, false)

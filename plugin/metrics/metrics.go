@@ -1,4 +1,4 @@
-// Package metrics 通用监控上报
+// Package metrics
 package metrics
 
 import (

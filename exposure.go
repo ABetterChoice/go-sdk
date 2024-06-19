@@ -485,7 +485,7 @@ func manualInitEvent(projectIDList []string, latency time.Duration, err error) {
 				Message:    env.ErrMsg(err),
 				SdkType:    env.SDKType,
 				SdkVersion: env.Version,
-				InvokePath: env.InvokePath(4), // 跳过 4 层调用栈
+				InvokePath: env.InvokePath(4),
 				InputData:  "",
 				OutputData: "",
 				ExtInfo:    nil,

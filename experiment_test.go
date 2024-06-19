@@ -68,7 +68,7 @@ func Test_userContext_GetExperiment(t *testing.T) {
 			want:    nil,
 			wantErr: true,
 		},
-		{ // 最简单的可通过的测试例子
+		{ // The simplest possible test example
 			name:   "normal",
 			fields: fields{},
 			args: args{
@@ -102,7 +102,7 @@ func Test_userContext_GetExperiment(t *testing.T) {
 			},
 			wantErr: false,
 		},
-		{ // 非天然满流量层 不命中的情况
+		{ // Non-natural full traffic layer Missing situation
 			name:   "invalid layer",
 			fields: fields{},
 			args: args{
@@ -114,7 +114,7 @@ func Test_userContext_GetExperiment(t *testing.T) {
 			want:    nil,
 			wantErr: false,
 		},
-		{ // 非天然满流量层 命中的情况
+		{ // Non-natural full traffic layer hit situation
 			name:   "invalid layer",
 			fields: fields{},
 			args: args{
@@ -139,7 +139,7 @@ func Test_userContext_GetExperiment(t *testing.T) {
 			},
 			wantErr: false,
 		},
-		{ // 指定实验 key，并且跟期望命中的不一致，结果返回层上命中的实验
+		{ // If the experiment key is specified and it is not consistent with the expected hit, the result will return the hit experiment on the layer.
 			name:   "normal",
 			fields: fields{},
 			args: args{
@@ -173,7 +173,7 @@ func Test_userContext_GetExperiment(t *testing.T) {
 			},
 			wantErr: false,
 		},
-		{ // opts 场景跟 layerKey 冲突，逻辑与的条件下，没有同时满足场景跟 layerKey 的相关层，故没有命中任何实验，返回 invalid layerKey
+		{ // The opts scenario conflicts with layerKey. Under the logical AND condition, no related layers satisfy both the scenario and layerKey. Therefore, no experiment is hit and invalid layerKey is returned.
 			name: "invalid layerKey",
 			fields: fields{
 				err:           nil,
@@ -226,7 +226,7 @@ func Test_userContext_GetExperiment(t *testing.T) {
 	}
 }
 
-// 测试流量比例是否符合预期
+// Test whether the traffic ratio meets expectations
 func Test_userContext_GetExperiment1(t *testing.T) {
 	Release()
 	// defer Release()
@@ -254,7 +254,7 @@ func Test_userContext_GetExperiment1(t *testing.T) {
 		want    *ExperimentResult
 		wantErr assert.ErrorAssertionFunc
 	}{
-		{ // 最简单的可通过的测试例子
+		{ // The simplest possible test example
 			name:   "normal",
 			fields: fields{},
 			args: args{

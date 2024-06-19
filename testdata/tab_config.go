@@ -1,4 +1,4 @@
-// Package testdata 测试数据 请勿使用
+// Package testdata Test data Do not use
 package testdata
 
 import (
@@ -13,11 +13,11 @@ import (
 )
 
 /*
-		单元测试数据规则
-	  - layerKey 统一以 test开头，以被测试的实际特性功能为结尾
-	    例如 test-multiLayerDomain-overrideLayer，标识测试数据在多层域下的 overrideLayer 层
-	  - 域下有多个域，以1、2、3等后缀标识，
-	  - 实验版本的 ID 规则 {{A}}{{B}}{{C}} ABC 分别是3位数 100_001_001 标识 层ID 100 下的 ID 为 100001 的实验下的 ID 为 100001001 的实验版本
+Unit test data rules
+- layerKey uniformly starts with test and ends with the actual feature function being tested
+For example, test-multiLayerDomain-overrideLayer identifies the overrideLayer layer of the test data under the multi-layer domain
+- There are multiple domains under a domain, identified by suffixes such as 1, 2, and 3,
+- Experimental version ID rules {{A}}{{B}}{{C}} ABC are 3 digits respectively 100_001_001 identifies the experimental version with ID 100001001 under the experiment with ID 100001 under layer ID 100
 */
 var (
 	projectID                          = "123"
@@ -26,14 +26,14 @@ var (
 	subDomainMultiDomain1MultiLayer1   = "subDomain-multiDomain1-multiLayer1"
 	subDomainHoldoutDomain1SingleLayer = "subDomain-holdoutDomain1-singleLayer"
 	// EmptyTabConfig TODO
-	// Deprecated: 测试数据，请勿使用
+	// Deprecated: Test data Do not use
 	EmptyTabConfig = &protoc_cache_server.TabConfig{
 		ExperimentData: nil,
 		ConfigData:     nil,
 		ControlData:    nil,
 	}
 	// NormalTabConfig TODO
-	// Deprecated: 测试数据，请勿使用
+	// Deprecated: Test data Do not use
 	NormalTabConfig = &protoc_cache_server.TabConfig{
 		ExperimentData: &protoc_cache_server.ExperimentData{
 			DefaultGroupId: -1,
@@ -105,7 +105,7 @@ var (
 									BucketSize:  10000,
 								},
 								GroupIndex: map[int64]*protoc_cache_server.Group{
-									100001001: { // 层默认实验
+									100001001: { // Layer Default Experiment
 										Id:            100001001,
 										GroupKey:      "100001001",
 										ExperimentId:  100001,
@@ -123,7 +123,7 @@ var (
 										SceneIdList: nil,
 										UnitIdType:  protoc_cache_server.UnitIDType_UNIT_ID_TYPE_DEFAULT,
 									},
-									100002001: { // 100002 实验的对照组
+									100002001: { // The control group of the experiment 100002
 										Id:            100002001,
 										GroupKey:      "100002001",
 										ExperimentId:  100002,
@@ -140,7 +140,7 @@ var (
 										SceneIdList: nil,
 										UnitIdType:  protoc_cache_server.UnitIDType_UNIT_ID_TYPE_DEFAULT,
 									},
-									100002002: { // 100002 实验的实验组
+									100002002: { //Experimental Group of the experiment 100002
 										Id:            100002002,
 										GroupKey:      "100002002",
 										ExperimentId:  100002,
@@ -157,7 +157,7 @@ var (
 										SceneIdList: nil,
 										UnitIdType:  protoc_cache_server.UnitIDType_UNIT_ID_TYPE_DEFAULT,
 									},
-									100003001: { // 100003 实验的对照组
+									100003001: { //The control group of the experiment 100003
 										Id:            100003001,
 										GroupKey:      "100003001",
 										ExperimentId:  100003,
@@ -174,7 +174,7 @@ var (
 										SceneIdList: nil,
 										UnitIdType:  protoc_cache_server.UnitIDType_UNIT_ID_TYPE_DEFAULT,
 									},
-									100003002: { // 100003 实验的实验组
+									100003002: { //The control group of the experiment 100003
 										Id:            100003002,
 										GroupKey:      "100003002",
 										ExperimentId:  100003,
@@ -192,7 +192,7 @@ var (
 										UnitIdType:  protoc_cache_server.UnitIDType_UNIT_ID_TYPE_DEFAULT,
 									},
 								},
-								// 双 hash 时实验的索引 TODO 是否由校验，双 hash 必须，单 hash 可为空
+								// Whether the index of the experiment TODO is verified when double hashing is used. Double hashing is required, and single hashing can be empty.
 								ExperimentIndex: map[int64]*protoc_cache_server.Experiment{
 									100001: &protoc_cache_server.Experiment{
 										Id:  100001,
@@ -231,7 +231,7 @@ var (
 									BucketSize:   10000,
 								},
 								GroupIndex: map[int64]*protoc_cache_server.Group{
-									101002001: { // 101002 实验的对照组
+									101002001: {
 										Id:            101002001,
 										GroupKey:      "101002001",
 										ExperimentId:  101002,
@@ -248,7 +248,7 @@ var (
 										SceneIdList: nil,
 										UnitIdType:  protoc_cache_server.UnitIDType_UNIT_ID_TYPE_DEFAULT,
 									},
-									101002002: { // 101002 实验的实验组
+									101002002: {
 										Id:            101002002,
 										GroupKey:      "101002002",
 										ExperimentId:  101002,
@@ -265,7 +265,7 @@ var (
 										SceneIdList: nil,
 										UnitIdType:  protoc_cache_server.UnitIDType_UNIT_ID_TYPE_DEFAULT,
 									},
-									101003001: { // 101003 实验的对照组
+									101003001: {
 										Id:            101003001,
 										GroupKey:      "101003001",
 										ExperimentId:  101003,
@@ -282,7 +282,7 @@ var (
 										SceneIdList: nil,
 										UnitIdType:  protoc_cache_server.UnitIDType_UNIT_ID_TYPE_DEFAULT,
 									},
-									101003002: { // 101003 实验的实验组
+									101003002: {
 										Id:            101003002,
 										GroupKey:      "101003002",
 										ExperimentId:  101003,
@@ -300,7 +300,7 @@ var (
 										UnitIdType:  protoc_cache_server.UnitIDType_UNIT_ID_TYPE_DEFAULT,
 									},
 								},
-								// 双 hash 时实验的索引 TODO 是否由校验，双 hash 必须，单 hash 可为空
+								// Whether the index of the experiment TODO is verified when double hashing is used. Double hashing is required, and single hashing can be empty.
 								ExperimentIndex: map[int64]*protoc_cache_server.Experiment{
 									101002: {
 										Id:  101002,
@@ -589,7 +589,7 @@ var (
 											BucketSize:  10000,
 										},
 										GroupIndex: map[int64]*protoc_cache_server.Group{
-											200001001: { // 层默认实验
+											200001001: {
 												Id:            200001001,
 												GroupKey:      "200001001",
 												ExperimentId:  200001,
@@ -606,7 +606,7 @@ var (
 												SceneIdList: nil,
 												UnitIdType:  protoc_cache_server.UnitIDType_UNIT_ID_TYPE_DEFAULT,
 											},
-											200002001: { // 200002 实验的对照组
+											200002001: {
 												Id:            200002001,
 												GroupKey:      "200002001",
 												ExperimentId:  200002,
@@ -623,7 +623,7 @@ var (
 												SceneIdList: nil,
 												UnitIdType:  protoc_cache_server.UnitIDType_UNIT_ID_TYPE_DEFAULT,
 											},
-											200002002: { // 200002 实验的实验组
+											200002002: {
 												Id:            200002002,
 												GroupKey:      "200002002",
 												ExperimentId:  200002,
@@ -640,7 +640,7 @@ var (
 												SceneIdList: nil,
 												UnitIdType:  protoc_cache_server.UnitIDType_UNIT_ID_TYPE_DEFAULT,
 											},
-											200003001: { // 200003 实验的对照组
+											200003001: {
 												Id:            200003001,
 												GroupKey:      "200003001",
 												ExperimentId:  200003,
@@ -657,7 +657,7 @@ var (
 												SceneIdList: nil,
 												UnitIdType:  protoc_cache_server.UnitIDType_UNIT_ID_TYPE_DEFAULT,
 											},
-											200003002: { // 200003 实验的实验组
+											200003002: {
 												Id:            200003002,
 												GroupKey:      "200003002",
 												ExperimentId:  200003,
@@ -675,7 +675,7 @@ var (
 												UnitIdType:  protoc_cache_server.UnitIDType_UNIT_ID_TYPE_DEFAULT,
 											},
 										},
-										// 双 hash 时实验的索引 TODO 是否由校验，双 hash 必须，单 hash 可为空
+										// Whether the index of the experiment TODO is verified when double hashing is used. Double hashing is required, and single hashing can be empty.
 										ExperimentIndex: map[int64]*protoc_cache_server.Experiment{
 											200001: {
 												Id:  200001,
@@ -749,7 +749,7 @@ var (
 											BucketSize:  10000,
 										},
 										GroupIndex: map[int64]*protoc_cache_server.Group{
-											201001001: { // 层默认实验
+											201001001: {
 												Id:            201001001,
 												GroupKey:      "201001001",
 												ExperimentId:  201001,
@@ -766,7 +766,7 @@ var (
 												SceneIdList: nil,
 												UnitIdType:  protoc_cache_server.UnitIDType_UNIT_ID_TYPE_DEFAULT,
 											},
-											201002001: { // 201002 实验的对照组
+											201002001: {
 												Id:            201002001,
 												GroupKey:      "201002001",
 												ExperimentId:  201002,
@@ -783,7 +783,7 @@ var (
 												SceneIdList: nil,
 												UnitIdType:  protoc_cache_server.UnitIDType_UNIT_ID_TYPE_DEFAULT,
 											},
-											201002002: { // 201002 实验的实验组
+											201002002: {
 												Id:            201002002,
 												GroupKey:      "201002002",
 												ExperimentId:  201002,
@@ -800,7 +800,7 @@ var (
 												SceneIdList: nil,
 												UnitIdType:  protoc_cache_server.UnitIDType_UNIT_ID_TYPE_DEFAULT,
 											},
-											201003001: { // 201003 实验的对照组 测试标签实验+dmp
+											201003001: {
 												Id:            201003001,
 												GroupKey:      "201003001",
 												ExperimentId:  201003,
@@ -831,7 +831,7 @@ var (
 												SceneIdList: nil,
 												UnitIdType:  protoc_cache_server.UnitIDType_UNIT_ID_TYPE_DEFAULT,
 											},
-											201003002: { // 201003 实验的实验组
+											201003002: {
 												Id:            201003002,
 												GroupKey:      "201003002",
 												ExperimentId:  201003,
@@ -870,7 +870,7 @@ var (
 												UnitIdType:  protoc_cache_server.UnitIDType_UNIT_ID_TYPE_DEFAULT,
 											},
 										},
-										// 双 hash 时实验的索引 TODO 是否由校验，双 hash 必须，单 hash 可为空
+										// Whether the index of the experiment TODO is verified when double hashing is used. Double hashing is required, and single hashing can be empty.
 										ExperimentIndex: map[int64]*protoc_cache_server.Experiment{
 											201001: {
 												Id:  201001,
@@ -897,7 +897,7 @@ var (
 											},
 										},
 									},
-									{ // 测试双 hash
+									{
 										Metadata: &protoc_cache_server.LayerMetadata{
 											Key: subDomainMultiDomain1MultiLayer2,
 											DefaultGroup: &protoc_cache_server.Group{
@@ -925,7 +925,7 @@ var (
 											BucketSize:  10000,
 										},
 										GroupIndex: map[int64]*protoc_cache_server.Group{
-											202001001: { // 层默认实验
+											202001001: {
 												Id:            202001001,
 												GroupKey:      "202001001",
 												ExperimentId:  202001,
@@ -942,7 +942,7 @@ var (
 												SceneIdList: nil,
 												UnitIdType:  protoc_cache_server.UnitIDType_UNIT_ID_TYPE_DEFAULT,
 											},
-											202002001: { // 202002 实验的对照组
+											202002001: {
 												Id:            202002001,
 												GroupKey:      "201002001",
 												ExperimentId:  202002,
@@ -980,7 +980,7 @@ var (
 												SceneIdList: nil,
 												UnitIdType:  protoc_cache_server.UnitIDType_UNIT_ID_TYPE_DEFAULT,
 											},
-											202002002: { // 202002 实验的实验组
+											202002002: {
 												Id:            202002002,
 												GroupKey:      "202002002",
 												ExperimentId:  202002,
@@ -1018,7 +1018,7 @@ var (
 												SceneIdList: nil,
 												UnitIdType:  protoc_cache_server.UnitIDType_UNIT_ID_TYPE_DEFAULT,
 											},
-											202003001: { // 202003 实验的对照组 测试标签实验+dmp
+											202003001: {
 												Id:            202003001,
 												GroupKey:      "202003001",
 												ExperimentId:  202003,
@@ -1049,7 +1049,7 @@ var (
 												SceneIdList: nil,
 												UnitIdType:  protoc_cache_server.UnitIDType_UNIT_ID_TYPE_DEFAULT,
 											},
-											202003002: { // 201003 实验的实验组
+											202003002: {
 												Id:            202003002,
 												GroupKey:      "202003002",
 												ExperimentId:  202003,
@@ -1088,7 +1088,7 @@ var (
 												UnitIdType:  protoc_cache_server.UnitIDType_UNIT_ID_TYPE_DEFAULT,
 											},
 										},
-										// 双 hash 时实验的索引 TODO 是否由校验，双 hash 必须，单 hash 可为空
+										// Whether the index of the experiment TODO is verified when double hashing is used. Double hashing is required, and single hashing can be empty.
 										ExperimentIndex: map[int64]*protoc_cache_server.Experiment{
 											202001: {
 												Id:         202001,
@@ -1388,7 +1388,7 @@ var (
 
 var (
 	// NormalExperimentBucketInfo TODO
-	// Deprecated: 测试数据，请勿使用
+	// Deprecated: for test,do not use
 	NormalExperimentBucketInfo = map[int64]*protoc_cache_server.BucketInfo{
 		202001: &protoc_cache_server.BucketInfo{
 			BucketType: protoc_cache_server.BucketType_BUCKET_TYPE_RANGE,
@@ -1465,7 +1465,7 @@ var (
 		},
 	}
 	// NormalGroupBucketInfo TODO
-	// Deprecated: 测试数据，请勿使用
+	// Deprecated: for test,do not use
 	NormalGroupBucketInfo = map[int64]*protoc_cache_server.BucketInfo{
 		100001001: &protoc_cache_server.BucketInfo{
 			BucketType:   protoc_cache_server.BucketType_BUCKET_TYPE_RANGE,
@@ -1698,8 +1698,8 @@ var (
 	}
 )
 
-// MockGenBitmap 测试专用
-// Deprecated: 测试专用
+// MockGenBitmap for test
+// Deprecated: for test
 func MockGenBitmap(left, right uint64) []byte {
 	bitmap := roaring.NewBitmap()
 	bitmap.AddRange(left, right)
@@ -1708,7 +1708,7 @@ func MockGenBitmap(left, right uint64) []byte {
 }
 
 // MockCacheClient TODO
-// Deprecated: MockCacheClient 缓存服务
+// Deprecated: MockCacheClient
 func MockCacheClient(t gomock.TestReporter) *client.MockClient {
 	mockClient := client.NewMockClient(gomock.NewController(t))
 	// mock GetTabConfigData
@@ -1741,7 +1741,7 @@ func MockCacheClient(t gomock.TestReporter) *client.MockClient {
 }
 
 // MockCacheClientWithData TODO
-// Deprecated: MockCacheClientWithData 缓存服务
+// Deprecated: MockCacheClientWithData
 func MockCacheClientWithData(t gomock.TestReporter, tabConfig *protoc_cache_server.TabConfig,
 	experimentBucketInfoIndex, groupBucketInfoIndex map[int64]*protoc_cache_server.BucketInfo) *client.MockClient {
 	mockClient := client.NewMockClient(gomock.NewController(t))
@@ -1774,8 +1774,8 @@ func MockCacheClientWithData(t gomock.TestReporter, tabConfig *protoc_cache_serv
 	return mockClient
 }
 
-// MockFakeCacheClient 构建失败的 cacheClient
-// Deprecated: 测试专用
+// MockFakeCacheClient mock fake cacheClient
+// Deprecated: for test
 func MockFakeCacheClient(t *testing.T) *client.MockClient {
 	mockClient := client.NewMockClient(gomock.NewController(t))
 	mockClient.EXPECT().GetTabConfigData(gomock.Any(), gomock.Any()).Return(nil, errors.Errorf("mock err")).AnyTimes()
