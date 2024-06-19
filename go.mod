@@ -5,7 +5,7 @@ go 1.17
 require (
 	github.com/RoaringBitmap/roaring v1.2.1
 	github.com/abetterchoice/hashutil v0.0.0-20240612073854-14a51781e8ad
-	github.com/abetterchoice/metrics-pubsub v0.0.0-20240617033204-a5e00ec2b20a
+	github.com/abetterchoice/metrics-pubsub v0.0.0-20240619132001-145052104b60
 	github.com/abetterchoice/protoc_cache_server v0.0.0-20240614085611-56d4e2694faf
 	github.com/abetterchoice/protoc_dmp_proxy_server v0.0.0-20240612072010-bb3459224bd0
 	github.com/abetterchoice/protoc_event_server v0.0.0-20240614085823-cafaa745b226

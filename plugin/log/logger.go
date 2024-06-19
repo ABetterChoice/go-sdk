@@ -2,7 +2,10 @@
 package log
 
 import (
+	"fmt"
 	"log"
+	"path"
+	"runtime"
 )
 
 func init() {
@@ -121,40 +124,49 @@ type InnerLogger struct{}
 
 // Warn printing
 func (i *InnerLogger) Warn(args ...interface{}) {
-	log.Println(args...)
+	log.Printf(getCallerInfo()+"\n", args...)
 }
 
 // Warnf printing
 func (i *InnerLogger) Warnf(format string, args ...interface{}) {
-	log.Printf(format+"\n", args...)
+	log.Printf(getCallerInfo()+format+"\n", args...)
 }
 
 // Info printing
 func (i *InnerLogger) Info(args ...interface{}) {
-	log.Println(args...)
+	log.Printf(getCallerInfo()+"\n", args...)
 }
 
 // Infof printing
 func (i *InnerLogger) Infof(format string, args ...interface{}) {
-	log.Printf(format+"\n", args...)
+	log.Printf(getCallerInfo()+format+"\n", args...)
 }
 
 // Error printing
 func (i *InnerLogger) Error(args ...interface{}) {
-	log.Println(args...)
+	log.Printf(getCallerInfo()+"\n", args...)
 }
 
 // Errorf printing
 func (i *InnerLogger) Errorf(format string, args ...interface{}) {
-	log.Printf(format+"\n", args...)
+	log.Printf(getCallerInfo()+format+"\n", args...)
 }
 
 // Debug printing
 func (i *InnerLogger) Debug(args ...interface{}) {
-	log.Println(args...)
+	log.Printf(getCallerInfo()+"\n", args...)
 }
 
 // Debugf printing
 func (i *InnerLogger) Debugf(format string, args ...interface{}) {
-	log.Printf(format+"\n", args...)
+	log.Printf(getCallerInfo()+format+"\n", args...)
+}
+
+func getCallerInfo() string {
+	_, file, line, ok := runtime.Caller(3)
+	if !ok {
+		return ""
+	}
+	fileName := path.Base(file)
+	return fmt.Sprintf("%s:%d\t", fileName, line)
 }
