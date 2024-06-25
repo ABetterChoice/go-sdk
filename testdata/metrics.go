@@ -46,6 +46,6 @@ func (a empty) Name() string {
 
 var (
 	// EmptyMetricsClient TODO
-	// Deprecated: 测试专用
+	// Deprecated: for test
 	EmptyMetricsClient = &empty{}
 )

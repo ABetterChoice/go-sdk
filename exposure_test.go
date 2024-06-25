@@ -23,7 +23,7 @@ func TestExposureExperiment(t *testing.T) {
 		wantErr assert.ErrorAssertionFunc
 	}{
 		{
-			name: "normal", // 没有数据
+			name: "normal", // no data
 			args: args{
 				ctx:       context.TODO(),
 				projectID: projectID,
@@ -34,7 +34,7 @@ func TestExposureExperiment(t *testing.T) {
 			},
 		},
 		{
-			name: "normal", // 没有数据
+			name: "normal", // no data
 			args: args{
 				ctx:       context.TODO(),
 				projectID: projectID,
@@ -62,7 +62,7 @@ func TestExposureExperiment(t *testing.T) {
 			},
 		},
 		{
-			name: "normal", // 没有数据
+			name: "normal", // no data
 			args: args{
 				ctx:       context.TODO(),
 				projectID: projectID,

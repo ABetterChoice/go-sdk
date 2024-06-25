@@ -15,7 +15,7 @@ import (
 var onlineProjectIDList = []string{"101"}
 var onlineProjectID = "101"
 
-// BenchmarkOnlineUUID 基线
+// BenchmarkOnlineUUID Baseline
 func BenchmarkOnlineUUID(b *testing.B) {
 	env.RegisterAddr(env.TypePrd, "https://openapi.sg.abetterchoice.ai")
 	defer tab.Release()
@@ -31,7 +31,7 @@ func BenchmarkOnlineUUID(b *testing.B) {
 	})
 }
 
-// 进行实验分流基准测试
+// Conducting experimental offload benchmarks
 func BenchmarkOnlineGetExperiments(b *testing.B) {
 	env.RegisterAddr(env.TypePrd, "https://openapi.sg.abetterchoice.ai")
 	defer tab.Release()
@@ -56,7 +56,7 @@ func BenchmarkOnlineGetExperiments(b *testing.B) {
 	})
 }
 
-// 屏蔽上报
+// Without report
 func BenchmarkOnlineGetExperimentWithoutReport(b *testing.B) {
 	env.RegisterAddr(env.TypePrd, "https://openapi.sg.abetterchoice.ai")
 	defer tab.Release()
@@ -82,7 +82,7 @@ func BenchmarkOnlineGetExperimentWithoutReport(b *testing.B) {
 	})
 }
 
-// 屏蔽 dmp
+// without dmp
 func BenchmarkOnlineGetExperimentWithoutDMP(b *testing.B) {
 	env.RegisterAddr(env.TypePrd, "https://openapi.sg.abetterchoice.ai")
 	defer tab.Release()
@@ -107,7 +107,7 @@ func BenchmarkOnlineGetExperimentWithoutDMP(b *testing.B) {
 	})
 }
 
-// 屏蔽上报
+// Without DMP
 func BenchmarkOnlineGetExpReportAndWithoutDMP(b *testing.B) {
 	env.RegisterAddr(env.TypePrd, "https://openapi.sg.abetterchoice.ai")
 	defer tab.Release()
