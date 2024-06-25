@@ -37,6 +37,11 @@ var (
 	rwMutex       sync.RWMutex
 )
 
+const (
+	// InitConfigKvToken TODO
+	InitConfigKvToken = "system_token"
+)
+
 // RegisterClient Registration indicator reporting plug-in implementation
 func RegisterClient(client Client) {
 	if client == nil {
