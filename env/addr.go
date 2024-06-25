@@ -5,8 +5,8 @@ import "net/url"
 
 // const The default backend address for each environment
 const (
-	DefaultAddrPrd  = "https://openapi.abetterchoice.ai"
-	DefaultAddrTest = "http://abetterchoice-test-openapi.woa.com"
+	DefaultAddrPrd  = "https://mobile.abetterchoice.ai"
+	DefaultAddrTest = "https://mobile.abetterchoice.ai"
 )
 
 // addrIndex
