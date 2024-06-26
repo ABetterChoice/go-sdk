@@ -40,6 +40,8 @@ var (
 const (
 	// InitConfigKvToken TODO
 	InitConfigKvToken = "system_token"
+	// MetricsLogTimeout TODO
+	MetricsLogTimeout = "log_timeout"
 )
 
 // RegisterClient Registration indicator reporting plug-in implementation
