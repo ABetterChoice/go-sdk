@@ -1,4 +1,4 @@
-// Package metrics
+// Package metrics TODO
 package metrics
 
 import (
@@ -35,6 +35,13 @@ type Client interface {
 var (
 	clientFactory = map[string]Client{} // Plug-in, supports multiple monitoring reports
 	rwMutex       sync.RWMutex
+)
+
+const (
+	// InitConfigKvToken TODO
+	InitConfigKvToken = "system_token"
+	// MetricsLogTimeout TODO
+	MetricsLogTimeout = "log_timeout"
 )
 
 // RegisterClient Registration indicator reporting plug-in implementation
