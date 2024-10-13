@@ -4,6 +4,7 @@ package example
 import (
 	"context"
 	"encoding/base64"
+	"github.com/abetterchoice/go-sdk/plugin/log"
 	"net/http"
 	"net/http/pprof"
 	"sync"
@@ -24,6 +25,7 @@ func TestTGLog(t *testing.T) {
 	pID := "36"
 	// env.RegisterAddr(env.TypePrd, "https://openapi.sg.abetterchoice.ai")
 	// Initialize the sdk. The global initialization only needs to be done once.
+	log.SetLoggerLevel(log.ErrorLevel)
 	err := sdk.Init(context.TODO(), []string{pID},
 		sdk.WithEnvType(env.TypePrd),
 		sdk.WithSecretKey(""),

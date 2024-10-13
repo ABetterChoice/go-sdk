@@ -40,7 +40,7 @@ type Logger interface {
 
 var (
 	defaultLogger Logger
-	loggerLevel   Level = InfoLevel
+	loggerLevel   Level = NotLogLevel
 )
 
 // Level Log Level
