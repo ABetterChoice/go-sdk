@@ -3,16 +3,14 @@ package env
 
 import "net/url"
 
-// const The default backend address for each environment
+// const The default backend address
 const (
 	DefaultAddrPrd  = "https://cache.abetterchoice.ai"
-	DefaultAddrTest = "https://cache.abetterchoice.ai"
 )
 
 // addrIndex
 var addrIndex = map[Type]string{
 	TypePrd:  DefaultAddrPrd,
-	TypeTest: DefaultAddrTest,
 }
 
 // RegisterAddr Register backend address

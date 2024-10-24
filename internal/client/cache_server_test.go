@@ -50,12 +50,12 @@ func TestNewTABCacheClient(t *testing.T) {
 		},
 		{
 			name: "with env type",
-			args: args{opts: []Option{WithHTTPClient(&http.Client{Timeout: 1 * time.Second}), WithEnvType(env.TypeTest)}},
+			args: args{opts: []Option{WithHTTPClient(&http.Client{Timeout: 1 * time.Second}), WithEnvType(env.TypePrd)}},
 			want: &tabCacheClient{
 				httpClient: &http.Client{
 					Timeout: 1 * time.Second,
 				},
-				addr: env.GetAddr(env.TypeTest),
+				addr: env.GetAddr(env.TypePrd),
 			},
 		},
 	}
