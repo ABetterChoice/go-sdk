@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"runtime"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -16,6 +17,7 @@ import (
 	metrics2 "github.com/abetterchoice/go-sdk/plugin/metrics"
 	protoctabcacheserver "github.com/abetterchoice/protoc_cache_server"
 	"github.com/abetterchoice/protoc_event_server"
+	"github.com/cenkalti/backoff/v4"
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 )
@@ -83,8 +85,21 @@ func InitLocalCache(ctx context.Context, projectIDList []string) error {
 		}
 		bc := projectID
 		g.Go(func() error {
-			_, err := NewAndSetApplication(ctx, bc)
-			if err != nil {
+			// exponential backoff
+			expBackoff := backoff.NewExponentialBackOff()
+			expBackoff.InitialInterval = 500 * time.Millisecond
+			expBackoff.MaxInterval = 5 * time.Second
+			expBackoff.MaxElapsedTime = 30 * time.Second // max elapsed time to 30s
+			if err := backoff.Retry(func() error {
+				if _, err := NewAndSetApplication(ctx, bc); err != nil {
+					// if error caused by setup tab config, just retry to avoid network fluctuation
+					if strings.Contains(err.Error(), "setupTabConfig") {
+						return err
+					}
+					return backoff.Permanent(err)
+				}
+				return nil
+			}, backoff.WithContext(expBackoff, ctx)); err != nil {
 				return err
 			}
 			go continuousFetch(bc)
