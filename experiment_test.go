@@ -3,11 +3,13 @@ package abc
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"reflect"
 	"testing"
 
 	"github.com/abetterchoice/go-sdk/env"
+	"github.com/abetterchoice/go-sdk/internal/experiment"
 	"github.com/abetterchoice/go-sdk/testdata"
 	"github.com/abetterchoice/protoc_cache_server"
 	"github.com/google/uuid"
@@ -324,4 +326,89 @@ func equalWithRange(actual, want int64, total int, r float64) bool {
 		return actual == want
 	}
 	return math.Abs(float64(actual-want))/float64(total) < r || math.Abs(float64(actual-want))/float64(want) < 0.08
+}
+
+func TestGetDefaultExperiments(t *testing.T) {
+	type args struct {
+		ctx       context.Context
+		projectID string
+		options   *experiment.Options
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    *ExperimentList
+		wantErr assert.ErrorAssertionFunc
+	}{
+		{
+			name: "normal",
+			args: args{
+				ctx:       context.Background(),
+				projectID: projectID,
+				options:   nil,
+			},
+			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+				return err == nil
+			},
+		},
+	}
+	Release()
+	err := Init(context.Background(), projectIDList, WithRegisterCacheClient(testdata.MockCacheClient(t)), WithRegisterDMPClient(testdata.MockEmptyDMPClient))
+	assert.Nil(t, err)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := GetDefaultExperiments(tt.args.ctx, tt.args.projectID)
+			if !tt.wantErr(t, err, fmt.Sprintf("GetDefaultExperiments(%v, %v)", tt.args.ctx, tt.args.projectID)) {
+				return
+			}
+			for _, group := range got.Data {
+				assert.True(t, group.IsDefault)
+			}
+			// assert.Equalf(t, tt.want, got, "GetDefaultExperiments(%v, %v)", tt.args.ctx, tt.args.projectID)
+		})
+	}
+}
+
+func TestGetDefaultExperimentsWithOpts(t *testing.T) {
+	type args struct {
+		ctx       context.Context
+		projectID string
+		options   []ExperimentOption
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    *ExperimentList
+		wantErr assert.ErrorAssertionFunc
+	}{
+		{
+			name: "normal",
+			args: args{
+				ctx:       context.Background(),
+				projectID: projectID,
+				options:   []ExperimentOption{WithLayerKey("subDomain-multiDomain1-multiLayer2")},
+			},
+			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+				return err == nil
+			},
+		},
+	}
+	Release()
+	err := Init(context.Background(), projectIDList, WithRegisterCacheClient(testdata.MockCacheClient(t)), WithRegisterDMPClient(testdata.MockEmptyDMPClient))
+	assert.Nil(t, err)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := GetDefaultExperiments(tt.args.ctx, tt.args.projectID, tt.args.options...)
+			if !tt.wantErr(t, err, fmt.Sprintf("GetDefaultExperiments(%v, %v)", tt.args.ctx, tt.args.projectID)) {
+				return
+			}
+			for _, group := range got.Data {
+				assert.True(t, group.IsDefault)
+			}
+			for layer, group := range got.Data {
+				assert.Equal(t, "subDomain-multiDomain1-multiLayer2", group.LayerKey)
+				t.Logf("layerKey=%s, group=%+v", layer, group)
+			}
+		})
+	}
 }
