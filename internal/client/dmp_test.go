@@ -159,6 +159,16 @@ func TestNewDMPClient(t *testing.T) {
 				addr: env.DefaultDMPAddrPrd,
 			},
 		},
+		{
+			name: "test env",
+			args: args{opts: []DMPOption{WithEnvTypeOption(env.TypeTest)}},
+			want: &tabDMPClient{
+				httpClient: &http.Client{
+					Timeout: 10 * time.Second,
+				},
+				addr: env.DefaultDMPAddrTest,
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

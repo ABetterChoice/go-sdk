@@ -48,7 +48,7 @@ func TestInit(t *testing.T) {
 		pID := "1111"
 		// Initialize the sdk. The global initialization only needs to be done once.
 		err := sdk.Init(context.TODO(), []string{pID},
-			sdk.WithEnvType(env.TypePrd),
+			sdk.WithEnvType(env.TypeTest),
 			sdk.WithSecretKey(""))
 		// sdk.WithRegisterCacheClient(testdata.MockCacheClient(t)),
 		if err != nil {
@@ -96,7 +96,7 @@ func TestSDKV2(t *testing.T) {
 	defer sdk.Release()
 	// Initialize the sdk. The global initialization only needs to be done once.
 	err := sdk.Init(context.TODO(), []string{pID},
-		sdk.WithEnvType(env.TypePrd),
+		sdk.WithEnvType(env.TypeTest),
 		sdk.WithSecretKey(""))
 	// sdk.WithRegisterCacheClient(testdata.MockCacheClient(t)),
 	assert.Nil(t, err)
@@ -196,12 +196,13 @@ func TestExperimentPprof(t *testing.T) {
 	}()
 	times := 150
 	defer sdk.Release()
+	env.RegisterAddr(env.TypeTest, "http://abetterchoice-test-openapi.woa.com")
 	// testdata.NormalTabConfig.ControlData.EventMetricsConfig.IsEnable = false
 	err := sdk.Init(context.TODO(), []string{"6666"},
 		sdk.WithRegisterMetricsPlugin(testdata.EmptyMetricsClient, nil),
 		// sdk.WithRegisterCacheClient(testdata.MockCacheClient(t)),
 		// sdk.WithRegisterDMPClient(testdata.MockEmptyDMPClient),
-		sdk.WithEnvType(env.TypePrd),
+		sdk.WithEnvType(env.TypeTest),
 		// sdk.WithDisableReport(true),
 		sdk.WithSecretKey("secretKey"))
 	assert.Nil(t, err)
