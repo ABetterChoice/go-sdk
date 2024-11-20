@@ -3,14 +3,16 @@ package env
 
 import "net/url"
 
-// const The default dmp backend service address
+// const The default dmp backend service address for each environment
 const (
-	DefaultDMPAddrPrd = "https://openapi.abetterchoice.ai"
+	DefaultDMPAddrPrd  = "https://openapi.abetterchoice.ai"
+	DefaultDMPAddrTest = "https://openapi.abetterchoice.ai"
 )
 
 // dmpAddrIndex DMP backend address index for each environment, replace the default address through RegisterDMPAddr
 var dmpAddrIndex = map[Type]string{
-	TypePrd: DefaultDMPAddrPrd,
+	TypePrd:  DefaultDMPAddrPrd,
+	TypeTest: DefaultDMPAddrTest,
 }
 
 // RegisterDMPAddr Register the dmp backend address in the specified environment

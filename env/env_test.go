@@ -84,6 +84,11 @@ func TestGetAddr(t *testing.T) {
 	}{
 		{
 			name: "normal",
+			args: args{envType: TypeTest},
+			want: DefaultAddrTest,
+		},
+		{
+			name: "normal",
 			args: args{envType: "xx"},
 			want: DefaultAddrPrd,
 		},
@@ -110,7 +115,15 @@ func TestRegisterDMPAddr(t *testing.T) {
 		{
 			name: "normal",
 			args: args{
-				envType: TypePrd,
+				envType: TypeTest,
+				addr:    DefaultDMPAddrTest,
+			},
+			wantErr: false,
+		},
+		{
+			name: "normal",
+			args: args{
+				envType: TypeTest,
 				addr:    string(invalidAddr),
 			},
 			wantErr: true,
@@ -134,6 +147,11 @@ func TestGetDMPAddr(t *testing.T) {
 		args args
 		want string
 	}{
+		{
+			name: "normal",
+			args: args{envType: TypeTest},
+			want: DefaultDMPAddrTest,
+		},
 		{
 			name: "normal",
 			args: args{envType: "xxx"},

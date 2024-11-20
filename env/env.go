@@ -9,9 +9,12 @@ import (
 // Type Environment Type
 type Type = string
 
-// const Environment type enumeration, only provides formal environment
+// const Environment type enumeration, only provides formal environment test environment
 const (
 	TypePrd Type = "prd"
+	// TypeTest TODO
+	// Deprecated: By default, all use the same formal environment
+	TypeTest Type = "test"
 )
 
 const (
