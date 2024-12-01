@@ -122,12 +122,21 @@ func initMetricsPlugin(ctx context.Context, config *internal.GlobalConfig) error
 				if name != pluginName {
 					continue
 				}
-				_, ok := config.MetricsPluginInitConfig[pluginName]
-				if ok { // The custom plug-in has been initialized and does not need to be initialized again.
-					continue
+				if _, ok := config.MetricsPluginInitConfig[pluginName]; ok {
+					continue // The custom plug-in has been initialized and does not need to be initialized again.
+				}
+				initConfigNew, err := deepCopyMetricsInitConfig(initConfig)
+				if err != nil {
+					return err
+				}
+				if initConfigNew.Kv == nil {
+					initConfigNew.Kv = make(map[string]string)
+				}
+				if _, ok := initConfigNew.Kv[mp.InitConfigKvToken]; !ok {
+					initConfigNew.Kv[mp.InitConfigKvToken] = config.SecretKey
 				}
 				// Initialize the client according to the initialization parameters of the remote configuration
-				return client.Init(ctx, initConfig)
+				return client.Init(ctx, initConfigNew)
 			}
 		}
 		return nil
@@ -221,6 +230,20 @@ func GetGlobalConfig() (*internal.GlobalConfig, error) {
 
 func deepCopyGlobalConfig(source *internal.GlobalConfig) (*internal.GlobalConfig, error) {
 	var result = &internal.GlobalConfig{}
+	data, err := json.Marshal(source)
+	if err != nil {
+		return nil, err
+	}
+	err = json.Unmarshal(data, result)
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+func deepCopyMetricsInitConfig(source *protoccacheserver.MetricsInitConfig) (*protoccacheserver.MetricsInitConfig,
+	error) {
+	var result = &protoccacheserver.MetricsInitConfig{}
 	data, err := json.Marshal(source)
 	if err != nil {
 		return nil, err
