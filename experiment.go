@@ -88,7 +88,7 @@ func (c *userContext) GetExperiments(ctx context.Context, projectID string,
 	}
 	c.fillOption(&options)
 	for _, opt := range opts {
-		err := opt(&options)
+		err = opt(&options)
 		if err != nil {
 			return nil, errors.Wrap(err, "opt")
 		}
@@ -113,6 +113,32 @@ func (c *userContext) GetExperiments(ctx context.Context, projectID string,
 		result.Data[layerKey] = convertGroup2Experiment(holdoutGroup)
 	}
 	result.userCtx = c
+	return result, nil
+}
+
+// GetDefaultExperiments The default experiment on the acquisition layer does not involve any diversion process,
+// and is mainly aimed at obtaining a bottom-up strategy.
+func GetDefaultExperiments(ctx context.Context, projectID string, opts ...ExperimentOption) (*ExperimentList, error) {
+	options := defaultExperimentOptions // copy, defaultExperimentOptions as template remains unchanged
+	for _, opt := range opts {
+		err := opt(&options)
+		if err != nil {
+			return nil, errors.Wrap(err, "opt")
+		}
+	}
+	experimentList, err := experiment.Executor.GetDefaultExperiments(ctx, projectID, &options)
+	if err != nil {
+		return nil, err
+	}
+	result := &ExperimentList{
+		Data: make(map[string]*Group, len(experimentList)),
+	}
+	for layerKey, group := range experimentList {
+		if group == nil {
+			continue
+		}
+		result.Data[layerKey] = convertGroup2Experiment(group)
+	}
 	return result, nil
 }
 

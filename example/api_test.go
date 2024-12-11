@@ -4,7 +4,6 @@ package example
 import (
 	"context"
 	"encoding/base64"
-	"github.com/abetterchoice/go-sdk/plugin/log"
 	"net/http"
 	"net/http/pprof"
 	"sync"
@@ -13,6 +12,7 @@ import (
 
 	sdk "github.com/abetterchoice/go-sdk"
 	"github.com/abetterchoice/go-sdk/env"
+	"github.com/abetterchoice/go-sdk/plugin/log"
 	"github.com/abetterchoice/go-sdk/testdata"
 	"github.com/abetterchoice/protoc_event_server"
 	"github.com/golang/protobuf/proto"

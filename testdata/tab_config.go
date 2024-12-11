@@ -140,7 +140,7 @@ var (
 										SceneIdList: nil,
 										UnitIdType:  protoc_cache_server.UnitIDType_UNIT_ID_TYPE_DEFAULT,
 									},
-									100002002: { //Experimental Group of the experiment 100002
+									100002002: { // Experimental Group of the experiment 100002
 										Id:            100002002,
 										GroupKey:      "100002002",
 										ExperimentId:  100002,
@@ -157,7 +157,7 @@ var (
 										SceneIdList: nil,
 										UnitIdType:  protoc_cache_server.UnitIDType_UNIT_ID_TYPE_DEFAULT,
 									},
-									100003001: { //The control group of the experiment 100003
+									100003001: { // The control group of the experiment 100003
 										Id:            100003001,
 										GroupKey:      "100003001",
 										ExperimentId:  100003,
@@ -174,7 +174,7 @@ var (
 										SceneIdList: nil,
 										UnitIdType:  protoc_cache_server.UnitIDType_UNIT_ID_TYPE_DEFAULT,
 									},
-									100003002: { //The control group of the experiment 100003
+									100003002: { // The control group of the experiment 100003
 										Id:            100003002,
 										GroupKey:      "100003002",
 										ExperimentId:  100003,
