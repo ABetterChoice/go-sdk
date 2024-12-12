@@ -3,9 +3,9 @@ package env
 
 const (
 	// SDKVersion SDK version
-	SDKVersion = "GO_SDK_v0.1.6"
+	SDKVersion = "GO_SDK_v0.1.7"
 	// SDKType SDK language type
 	SDKType = "GO"
 	// Version version
-	Version = "v0.1.6"
+	Version = "v0.1.7"
 )
