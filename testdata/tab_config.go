@@ -526,6 +526,86 @@ var (
 									},
 								},
 							},
+							{
+								Metadata: &protoc_cache_server.LayerMetadata{
+									Key:        "doubleHashLayerTDMPagValue",
+									HashType:   protoc_cache_server.HashType_HASH_TYPE_DOUBLE,
+									HashMethod: protoc_cache_server.HashMethod_HASH_METHOD_BKDR,
+									HashSeed:   5713,
+									UnitIdType: protoc_cache_server.UnitIDType_UNIT_ID_TYPE_DEFAULT,
+									BucketSize: 10000,
+								},
+								GroupIndex: map[int64]*protoc_cache_server.Group{
+									304001001: &protoc_cache_server.Group{
+										Id:            304001001,
+										GroupKey:      "304001001",
+										ExperimentId:  304001,
+										ExperimentKey: "304001",
+										IsControl:     true,
+										LayerKey:      "doubleHashLayerTDMPagValue",
+										IssueInfo: &protoc_cache_server.IssueInfo{
+											IssueType: protoc_cache_server.IssueType_ISSUE_TYPE_TAG,
+											TagListGroup: []*protoc_cache_server.TagList{
+												{
+													TagList: []*protoc_cache_server.Tag{
+														{
+															Key:         "tagTest123",
+															TagType:     protoc_cache_server.TagType_TAG_TYPE_STRING,
+															Operator:    protoc_cache_server.Operator_OPERATOR_EQ,
+															Value:       "123",
+															DmpPlatform: 3,
+															UnitIdType:  protoc_cache_server.UnitIDType_UNIT_ID_TYPE_DEFAULT,
+															TagOrigin:   protoc_cache_server.TagOrigin_TAG_ORIGIN_DMP,
+														},
+													},
+												},
+											},
+										},
+										UnitIdType: protoc_cache_server.UnitIDType_UNIT_ID_TYPE_DEFAULT,
+									},
+									304001002: &protoc_cache_server.Group{
+										Id:            304001002,
+										GroupKey:      "304001002",
+										ExperimentId:  304001,
+										ExperimentKey: "304001",
+										IsControl:     false,
+										LayerKey:      "doubleHashLayerTDMPagValue",
+										IssueInfo: &protoc_cache_server.IssueInfo{
+											IssueType: protoc_cache_server.IssueType_ISSUE_TYPE_CITY_TAG,
+											TagListGroup: []*protoc_cache_server.TagList{
+												{
+													TagList: []*protoc_cache_server.Tag{
+														{
+															Key:         "tagTest123",
+															TagType:     protoc_cache_server.TagType_TAG_TYPE_STRING,
+															Operator:    protoc_cache_server.Operator_OPERATOR_EQ,
+															Value:       "123",
+															DmpPlatform: 3,
+															UnitIdType:  protoc_cache_server.UnitIDType_UNIT_ID_TYPE_DEFAULT,
+															TagOrigin:   protoc_cache_server.TagOrigin_TAG_ORIGIN_DMP,
+														},
+													},
+												},
+											},
+										},
+										UnitIdType: protoc_cache_server.UnitIDType_UNIT_ID_TYPE_DEFAULT,
+									},
+								},
+								ExperimentIndex: map[int64]*protoc_cache_server.Experiment{
+									304001: &protoc_cache_server.Experiment{
+										HashMethod: protoc_cache_server.HashMethod_HASH_METHOD_BKDR,
+										HashSeed:   5713,
+										Id:         304001,
+										Key:        "304001",
+										BucketSize: 10000,
+										IssueType:  protoc_cache_server.IssueType_ISSUE_TYPE_TAG,
+										GroupIdIndex: map[int64]bool{
+											304001001: true,
+											304001002: true,
+										},
+									},
+								},
+							},
 						},
 					},
 				},
@@ -1463,6 +1543,15 @@ var (
 			Version:    "",
 			ModifyType: protoc_cache_server.ModifyType_MODIFY_UPDATE,
 		},
+		304001: &protoc_cache_server.BucketInfo{
+			BucketType: protoc_cache_server.BucketType_BUCKET_TYPE_RANGE,
+			TrafficRange: &protoc_cache_server.TrafficRange{
+				Left:  1,
+				Right: 10000,
+			},
+			Version:    "",
+			ModifyType: protoc_cache_server.ModifyType_MODIFY_UPDATE,
+		},
 	}
 	// NormalGroupBucketInfo TODO
 	// Deprecated: for test,do not use
@@ -1687,6 +1776,22 @@ var (
 			ModifyType:   protoc_cache_server.ModifyType_MODIFY_UPDATE,
 		},
 		303001002: &protoc_cache_server.BucketInfo{
+			BucketType: protoc_cache_server.BucketType_BUCKET_TYPE_RANGE,
+			TrafficRange: &protoc_cache_server.TrafficRange{
+				Left:  5001,
+				Right: 10000,
+			},
+			Version:    "",
+			ModifyType: protoc_cache_server.ModifyType_MODIFY_UPDATE,
+		},
+		304001001: &protoc_cache_server.BucketInfo{
+			BucketType:   protoc_cache_server.BucketType_BUCKET_TYPE_BITMAP,
+			TrafficRange: nil,
+			Bitmap:       MockGenBitmap(0, 5000),
+			Version:      "",
+			ModifyType:   protoc_cache_server.ModifyType_MODIFY_UPDATE,
+		},
+		304001002: &protoc_cache_server.BucketInfo{
 			BucketType: protoc_cache_server.BucketType_BUCKET_TYPE_RANGE,
 			TrafficRange: &protoc_cache_server.TrafficRange{
 				Left:  5001,

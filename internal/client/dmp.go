@@ -17,9 +17,8 @@ import (
 
 // DMPClient dmp client definition, as an abstract class, shielding the underlying specific implementation
 type DMPClient interface {
-	// BatchGetDMPTagResult Get the judgment results of unitID dmp tags in batches
-	BatchGetDMPTagResult(ctx context.Context, req *protocdmpproxyserver.BatchGetDMPTagResultReq) (
-		*protocdmpproxyserver.BatchGetDMPTagResultResp, error)
+	BatchGetTagValue(ctx context.Context, req *protocdmpproxyserver.BatchGetTagValueReq) (
+		*protocdmpproxyserver.BatchGetTagValueResp, error)
 }
 
 var (
@@ -71,12 +70,56 @@ type tabDMPClient struct {
 var (
 	// batchGetDMPTagResultURI Interface uri address
 	batchGetDMPTagResultURI = "/opensource.tab.dmp_proxy_server.APIServer/BatchGetDMPTagResult"
+	batchGetTagValueURI     = "/opensource.tab.dmp_proxy_server.APIServer/BatchGetTagValue"
 )
 
 // BatchGetDMPTagResult dmp default implementation, get unit dmp tag judgment result
 func (c *tabDMPClient) BatchGetDMPTagResult(ctx context.Context, req *protocdmpproxyserver.BatchGetDMPTagResultReq) (
 	*protocdmpproxyserver.BatchGetDMPTagResultResp, error) {
 	return c.BatchGetDMPResultHTTP(ctx, req)
+}
+
+// BatchGetTagValue dmp default implementation, get unit tag judgment result
+func (c *tabDMPClient) BatchGetTagValue(ctx context.Context, req *protocdmpproxyserver.BatchGetTagValueReq) (
+	*protocdmpproxyserver.BatchGetTagValueResp, error) {
+	return c.BatchGetTagValueHTTP(ctx, req)
+}
+
+// BatchGetTagValueHTTP Request dmp proxy service through http protocol
+func (c *tabDMPClient) BatchGetTagValueHTTP(ctx context.Context, req *protocdmpproxyserver.BatchGetTagValueReq) (
+	*protocdmpproxyserver.BatchGetTagValueResp, error) {
+	body, err := proto.Marshal(req)
+	if err != nil {
+		return nil, errors.Wrap(err, "proto marshal")
+	}
+	httpReq, err := http.NewRequest(http.MethodPost, c.addr+batchGetTagValueURI, bytes.NewReader(body))
+	if err != nil {
+		return nil, errors.Wrap(err, "http newRequest")
+	}
+	httpReq = httpReq.WithContext(ctx)
+	for key, value := range dmpHeaders {
+		httpReq.Header.Set(key, value)
+	}
+	authHeader(httpReq)
+	httpReq.Header.Set(KeyToken, internal.C.SecretKey)
+	resp, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		return nil, errors.Wrap(err, "http do")
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, errors.Errorf("invalid http status:%s", resp.Status)
+	}
+	respBody, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, errors.Wrap(err, "ioutil readAll")
+	}
+	result := &protocdmpproxyserver.BatchGetTagValueResp{}
+	err = proto.Unmarshal(respBody, result)
+	if err != nil {
+		return nil, errors.Wrap(err, "proto unmarshal")
+	}
+	return result, nil
 }
 
 // BatchGetDMPResultHTTP Request dmp proxy service through http protocol
@@ -119,27 +162,4 @@ func (c *tabDMPClient) BatchGetDMPResultHTTP(ctx context.Context, req *protocdmp
 var dmpHeaders = map[string]string{
 	"Content-Type":          "application/proto",
 	"X-Tab-Rpc-ServiceName": "opensource.tab.dmp_proxy_server.APIServer",
-}
-
-// IsHitDMP TODO
-func IsHitDMP(ctx context.Context, req *protocdmpproxyserver.GetDMPTagResultReq, dmpTag string) (bool, error) {
-	if req == nil {
-		return false, nil
-	}
-	result, err := DC.BatchGetDMPTagResult(ctx, &protocdmpproxyserver.BatchGetDMPTagResultReq{
-		ReqList: []*protocdmpproxyserver.GetDMPTagResultReq{
-			req,
-		},
-	})
-	if err != nil {
-		return false, errors.Wrap(err, "batchGetDMPTagResult")
-	}
-	for _, getDMPTagResultResp := range result.RespList {
-		statusCode, ok := getDMPTagResultResp.DmpResult[dmpTag]
-		if !ok {
-			return false, nil
-		}
-		return statusCode == protocdmpproxyserver.StatusCode_STATUS_CODE_HIT, nil
-	}
-	return false, nil
 }

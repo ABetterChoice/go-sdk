@@ -285,16 +285,24 @@ func setupDMPTagInfo(application *Application) error {
 					if tag == nil {
 						return errors.Errorf("[groupID=%d]invalid tag", group.Id)
 					}
-					if tag.TagType != protoctabcacheserver.TagType_TAG_TYPE_DMP {
-						continue
+					if tag.TagType == protoctabcacheserver.TagType_TAG_TYPE_DMP {
+						if result[layer.Metadata.UnitIdType] == nil {
+							result[layer.Metadata.UnitIdType] = make(map[int64]map[string]interface{})
+						}
+						if result[layer.Metadata.UnitIdType][tag.DmpPlatform] == nil {
+							result[layer.Metadata.UnitIdType][tag.DmpPlatform] = make(map[string]interface{})
+						}
+						result[layer.Metadata.UnitIdType][tag.DmpPlatform][tag.Key] = nil
 					}
-					if result[layer.Metadata.UnitIdType] == nil {
-						result[layer.Metadata.UnitIdType] = make(map[int64]map[string]interface{})
+					if tag.TagOrigin == protoctabcacheserver.TagOrigin_TAG_ORIGIN_DMP {
+						if result[layer.Metadata.UnitIdType] == nil {
+							result[layer.Metadata.UnitIdType] = make(map[int64]map[string]interface{})
+						}
+						if result[layer.Metadata.UnitIdType][tag.DmpPlatform] == nil {
+							result[layer.Metadata.UnitIdType][tag.DmpPlatform] = make(map[string]interface{})
+						}
+						result[layer.Metadata.UnitIdType][tag.DmpPlatform][tag.Key] = nil
 					}
-					if result[layer.Metadata.UnitIdType][tag.DmpPlatform] == nil {
-						result[layer.Metadata.UnitIdType][tag.DmpPlatform] = make(map[string]interface{})
-					}
-					result[layer.Metadata.UnitIdType][tag.DmpPlatform][tag.Value] = nil
 				}
 			}
 		}

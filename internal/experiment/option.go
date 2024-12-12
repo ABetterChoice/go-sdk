@@ -23,8 +23,8 @@ type Options struct {
 	// rpc will first access the dmp service to get the hit or not result. Enabled by default
 	IsPreparedDMPTag bool `json:"isPreparedDmpTag,omitempty"`
 	// The key format is {{reporting ID}}-{{DMP platform ID}}-{{crowd package key}},
-	// and the value is whether it is a hit
-	DMPTagResult map[string]bool `json:"dmpTagResult,omitempty"`
+	// and Value is the value of the tag
+	DMPTagValueResult map[string]string `json:"dmpTagValueResult"`
 	// Whether to disable dmp. If disabled, no rpc will be initiated.
 	// ab test will offload all local calculations and will not hit dmp by default
 	IsDisableDMP bool `json:"isDisableDmp,omitempty"`

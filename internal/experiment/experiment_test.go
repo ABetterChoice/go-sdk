@@ -44,7 +44,6 @@ func Test_executor_GetExperiments(t *testing.T) {
 						"overrideLayer":                      100001001,
 						"subDomain-multiDomain1-multiLayer1": 201002002,
 					},
-					DMPTagResult:     map[string]bool{},
 					IsPreparedDMPTag: true,
 				},
 			},
@@ -63,7 +62,6 @@ func Test_executor_GetExperiments(t *testing.T) {
 					LayerKeys: map[string]bool{
 						"overrideLayer": true,
 					},
-					DMPTagResult:     map[string]bool{},
 					IsPreparedDMPTag: true,
 				},
 			},
@@ -89,6 +87,46 @@ func Test_executor_GetExperiments(t *testing.T) {
 			wantErr: false,
 		},
 		{
+			name: "abtest dmp tag value",
+			args: args{
+				ctx:       context.TODO(),
+				projectID: projectID,
+				options: &Options{
+					IsExposureLoggingAutomatic: true,
+					OverrideList: map[string]int64{
+						"overrideLayer":                      100001001,
+						"subDomain-multiDomain1-multiLayer1": 201002002,
+					},
+					IsPreparedDMPTag: false,
+					AttributeTag: map[string][]string{
+						"tagTest123": []string{"123"},
+					},
+				},
+			},
+			want:    globalAbtestResultTagValue,
+			wantErr: false,
+		},
+		{
+			name: "abtest dmp tag value[prepared]",
+			args: args{
+				ctx:       context.TODO(),
+				projectID: projectID,
+				options: &Options{
+					IsExposureLoggingAutomatic: true,
+					OverrideList: map[string]int64{
+						"overrideLayer":                      100001001,
+						"subDomain-multiDomain1-multiLayer1": 201002002,
+					},
+					IsPreparedDMPTag: true,
+					AttributeTag: map[string][]string{
+						"tagTest123": []string{"123"},
+					},
+				},
+			},
+			want:    globalAbtestResultTagValue,
+			wantErr: false,
+		},
+		{
 			name: "abtest override",
 			args: args{
 				ctx:       context.TODO(),
@@ -103,7 +141,6 @@ func Test_executor_GetExperiments(t *testing.T) {
 					LayerKeys: map[string]bool{
 						"overrideLayer": true,
 					},
-					DMPTagResult:     map[string]bool{},
 					IsPreparedDMPTag: true,
 				},
 			},
@@ -138,7 +175,6 @@ func Test_executor_GetExperiments(t *testing.T) {
 					IsExposureLoggingAutomatic: true,
 					OverrideList:               map[string]int64{},
 					DecisionID:                 "123",
-					DMPTagResult:               map[string]bool{},
 					IsPreparedDMPTag:           false,
 				},
 			},
@@ -159,8 +195,21 @@ func Test_executor_GetExperiments(t *testing.T) {
 			// wantBody, err := json.Marshal(tt.want)
 			// assert.Nil(t, err)
 			// assert.Equal(t, string(gotBody), string(wantBody))
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("GetExperiments() got = \n%v, want \n%v", got, tt.want)
+			if !reflect.DeepEqual(env.JSONString(got), env.JSONString(tt.want)) {
+				if len(got) != len(tt.want) {
+					t.Errorf("invaid got=%v\n%+v \nwant=%v\n%+v", len(got), got, len(tt.want), tt.want)
+					// return
+				}
+				for layerKey := range got {
+					if !reflect.DeepEqual(env.JSONString(got[layerKey]), env.JSONString(tt.want[layerKey])) {
+						t.Errorf("[%s]GetExperiments() got = \n%v, want \n%v", layerKey, env.JSONString(got[layerKey]), env.JSONString(tt.want[layerKey]))
+					}
+				}
+				for layerKey := range tt.want {
+					if !reflect.DeepEqual(env.JSONString(got[layerKey]), env.JSONString(tt.want[layerKey])) {
+						t.Errorf("[%s]GetExperiments() got = \n%v, want \n%v", layerKey, env.JSONString(got[layerKey]), env.JSONString(tt.want[layerKey]))
+					}
+				}
 			}
 		})
 	}
@@ -309,6 +358,36 @@ var (
 			},
 			IsOverrideList: true,
 		},
+		"doubleHashLayerTDMPagValue": &Experiment{
+			Group: &protoccacheserver.Group{
+				Id:            304001001,
+				GroupKey:      "304001001",
+				ExperimentId:  304001,
+				ExperimentKey: "304001",
+				IsControl:     true,
+				LayerKey:      "doubleHashLayerTDMPagValue",
+				IssueInfo: &protoccacheserver.IssueInfo{
+					IssueType: protoccacheserver.IssueType_ISSUE_TYPE_TAG,
+					TagListGroup: []*protoccacheserver.TagList{
+						{
+							TagList: []*protoccacheserver.Tag{
+								{
+									Key:         "tagTest123",
+									TagType:     protoccacheserver.TagType_TAG_TYPE_STRING,
+									Operator:    protoccacheserver.Operator_OPERATOR_EQ,
+									Value:       "123",
+									DmpPlatform: 3,
+									UnitIdType:  protoccacheserver.UnitIDType_UNIT_ID_TYPE_DEFAULT,
+									TagOrigin:   protoccacheserver.TagOrigin_TAG_ORIGIN_DMP,
+								},
+							},
+						},
+					},
+				},
+				UnitIdType: protoccacheserver.UnitIDType_UNIT_ID_TYPE_DEFAULT,
+			},
+			IsOverrideList: false,
+		},
 	}
 	// decisionID is 123, hash hit subDomain-multiDomain
 	globalAbtestResult2 = map[string]*Experiment{
@@ -441,6 +520,208 @@ var (
 				},
 				UnitIdType: protoccacheserver.UnitIDType_UNIT_ID_TYPE_DEFAULT,
 			},
+		},
+		"doubleHashLayerTDMPagValue": &Experiment{
+			Group: &protoccacheserver.Group{
+				Id:            304001001,
+				GroupKey:      "304001001",
+				ExperimentId:  304001,
+				ExperimentKey: "304001",
+				IsControl:     true,
+				LayerKey:      "doubleHashLayerTDMPagValue",
+				IssueInfo: &protoccacheserver.IssueInfo{
+					IssueType: protoccacheserver.IssueType_ISSUE_TYPE_TAG,
+					TagListGroup: []*protoccacheserver.TagList{
+						{
+							TagList: []*protoccacheserver.Tag{
+								{
+									Key:         "tagTest123",
+									TagType:     protoccacheserver.TagType_TAG_TYPE_STRING,
+									Operator:    protoccacheserver.Operator_OPERATOR_EQ,
+									Value:       "123",
+									DmpPlatform: 3,
+									UnitIdType:  protoccacheserver.UnitIDType_UNIT_ID_TYPE_DEFAULT,
+									TagOrigin:   protoccacheserver.TagOrigin_TAG_ORIGIN_DMP,
+								},
+							},
+						},
+					},
+				},
+				UnitIdType: protoccacheserver.UnitIDType_UNIT_ID_TYPE_DEFAULT,
+			},
+			IsOverrideList: false,
+		},
+	}
+	globalAbtestResultTagValue = map[string]*Experiment{
+		"doubleHashLayerCityTag": &Experiment{
+			Group: &protoccacheserver.Group{
+				Id:            303001001,
+				GroupKey:      "303001001",
+				ExperimentId:  303001,
+				ExperimentKey: "303001",
+				IsControl:     true,
+				LayerKey:      "doubleHashLayerCityTag",
+				IssueInfo: &protoccacheserver.IssueInfo{
+					IssueType: protoccacheserver.IssueType_ISSUE_TYPE_CITY_TAG,
+					TagListGroup: []*protoccacheserver.TagList{
+						{
+							TagList: []*protoccacheserver.Tag{
+								{
+									Key:         "dmpTagTest",
+									TagType:     protoccacheserver.TagType_TAG_TYPE_DMP,
+									Operator:    protoccacheserver.Operator_OPERATOR_FALSE,
+									Value:       "dmpCodeTest3",
+									DmpPlatform: 3,
+									UnitIdType:  protoccacheserver.UnitIDType_UNIT_ID_TYPE_DEFAULT,
+								},
+							},
+						},
+					},
+				},
+				SceneIdList: nil,
+				UnitIdType:  protoccacheserver.UnitIDType_UNIT_ID_TYPE_DEFAULT,
+			},
+		},
+		"doubleHashLayerPercentage": &Experiment{
+			Group: &protoccacheserver.Group{
+				Id:            302001001,
+				GroupKey:      "302001001",
+				ExperimentId:  302001,
+				ExperimentKey: "302001",
+				IsControl:     true,
+				LayerKey:      "doubleHashLayerPercentage",
+				IssueInfo: &protoccacheserver.IssueInfo{
+					IssueType: protoccacheserver.IssueType_ISSUE_TYPE_PERCENTAGE,
+				},
+				UnitIdType: protoccacheserver.UnitIDType_UNIT_ID_TYPE_DEFAULT,
+			},
+		},
+		"doubleHashLayerTag": &Experiment{
+			Group: &protoccacheserver.Group{
+				Id:            301001001,
+				GroupKey:      "301001001",
+				ExperimentId:  301001,
+				ExperimentKey: "301001",
+				IsControl:     true,
+				LayerKey:      "doubleHashLayerTag",
+				IssueInfo: &protoccacheserver.IssueInfo{
+					IssueType: protoccacheserver.IssueType_ISSUE_TYPE_TAG,
+					TagListGroup: []*protoccacheserver.TagList{
+						{
+							TagList: []*protoccacheserver.Tag{
+								{
+									Key:         "dmpTagTest",
+									TagType:     protoccacheserver.TagType_TAG_TYPE_DMP,
+									Operator:    protoccacheserver.Operator_OPERATOR_FALSE,
+									Value:       "dmpCodeTest3",
+									DmpPlatform: 3,
+									UnitIdType:  protoccacheserver.UnitIDType_UNIT_ID_TYPE_DEFAULT,
+								},
+							},
+						},
+					},
+				},
+				UnitIdType: protoccacheserver.UnitIDType_UNIT_ID_TYPE_DEFAULT,
+			},
+		},
+		"multiLayer2": &Experiment{
+			Group: &protoccacheserver.Group{
+				Id:            101002001,
+				GroupKey:      "101002001",
+				ExperimentId:  101002,
+				ExperimentKey: "101002",
+				Params: map[string]string{
+					"key1": "101002001",
+				},
+				IsControl: true,
+				LayerKey:  "multiLayer2",
+				IssueInfo: &protoccacheserver.IssueInfo{
+					IssueType: protoccacheserver.IssueType_ISSUE_TYPE_PERCENTAGE,
+				},
+				UnitIdType: protoccacheserver.UnitIDType_UNIT_ID_TYPE_DEFAULT,
+			},
+		},
+		"overrideLayer": &Experiment{
+			Group: &protoccacheserver.Group{
+				Id:            100001001,
+				GroupKey:      "100001001",
+				ExperimentId:  100001,
+				ExperimentKey: "100001",
+				Params: map[string]string{
+					"key1": "100001001",
+				},
+				IsDefault: true,
+				LayerKey:  "overrideLayer",
+				IssueInfo: &protoccacheserver.IssueInfo{
+					IssueType: protoccacheserver.IssueType_ISSUE_TYPE_PERCENTAGE,
+				},
+				UnitIdType: protoccacheserver.UnitIDType_UNIT_ID_TYPE_DEFAULT,
+			},
+			IsOverrideList: true,
+		},
+		"subDomain-holdoutDomain1-singleLayer": &Experiment{
+			Group: &protoccacheserver.Group{
+				Id:            200002001,
+				GroupKey:      "200002001",
+				ExperimentId:  200002,
+				ExperimentKey: "200002",
+				Params: map[string]string{
+					"key1": "200002001",
+				},
+				IsControl: true,
+				LayerKey:  "subDomain-holdoutDomain1-singleLayer",
+				IssueInfo: &protoccacheserver.IssueInfo{
+					IssueType: protoccacheserver.IssueType_ISSUE_TYPE_PERCENTAGE,
+				},
+				UnitIdType: protoccacheserver.UnitIDType_UNIT_ID_TYPE_DEFAULT,
+			},
+		},
+		"subDomain-multiDomain1-multiLayer1": &Experiment{
+			Group: &protoccacheserver.Group{
+				Id:            201002002,
+				GroupKey:      "201002002",
+				ExperimentId:  201002,
+				ExperimentKey: "201002",
+				Params: map[string]string{
+					"key1": "201002002",
+				},
+				LayerKey: "subDomain-multiDomain1-multiLayer1",
+				IssueInfo: &protoccacheserver.IssueInfo{
+					IssueType: protoccacheserver.IssueType_ISSUE_TYPE_PERCENTAGE,
+				},
+				UnitIdType: protoccacheserver.UnitIDType_UNIT_ID_TYPE_DEFAULT,
+			},
+			IsOverrideList: true,
+		},
+		"doubleHashLayerTDMPagValue": &Experiment{
+			Group: &protoccacheserver.Group{
+				Id:            304001001,
+				GroupKey:      "304001001",
+				ExperimentId:  304001,
+				ExperimentKey: "304001",
+				IsControl:     true,
+				LayerKey:      "doubleHashLayerTDMPagValue",
+				IssueInfo: &protoccacheserver.IssueInfo{
+					IssueType: protoccacheserver.IssueType_ISSUE_TYPE_TAG,
+					TagListGroup: []*protoccacheserver.TagList{
+						{
+							TagList: []*protoccacheserver.Tag{
+								{
+									Key:         "tagTest123",
+									TagType:     protoccacheserver.TagType_TAG_TYPE_STRING,
+									Operator:    protoccacheserver.Operator_OPERATOR_EQ,
+									Value:       "123",
+									DmpPlatform: 3,
+									UnitIdType:  protoccacheserver.UnitIDType_UNIT_ID_TYPE_DEFAULT,
+									TagOrigin:   protoccacheserver.TagOrigin_TAG_ORIGIN_DMP,
+								},
+							},
+						},
+					},
+				},
+				UnitIdType: protoccacheserver.UnitIDType_UNIT_ID_TYPE_DEFAULT,
+			},
+			IsOverrideList: false,
 		},
 	}
 )

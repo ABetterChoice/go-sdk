@@ -34,6 +34,31 @@ func (e emptyDMPClient) BatchGetDMPTagResult(ctx context.Context,
 	return &protoc_dmp_proxy_server.BatchGetDMPTagResultResp{RespList: respList}, nil
 }
 
+// BatchGetTagValue TODO
+func (e emptyDMPClient) BatchGetTagValue(ctx context.Context,
+	req *protoc_dmp_proxy_server.BatchGetTagValueReq) (*protoc_dmp_proxy_server.BatchGetTagValueResp, error) {
+	resp := &protoc_dmp_proxy_server.BatchGetTagValueResp{
+		RetCode:         protoc_dmp_proxy_server.RetCode_RET_CODE_SUCCESS,
+		Message:         "mock success",
+		UnitId:          req.UnitId,
+		UnitType:        req.UnitType,
+		DmpPlatformCode: req.DmpPlatformCode,
+		TagResult:       map[string]string{},
+	}
+	for _, tag := range req.TagList {
+		if tag == "tagTest123" { // tagTest123 结果 123
+			resp.TagResult[tag] = "123"
+			continue
+		}
+		if tag == "dmpCodeTestHit" { // dmpCodeTestHit 结果命中
+			resp.TagResult[tag] = "1"
+			continue
+		}
+		resp.TagResult[tag] = "0"
+	}
+	return resp, nil
+}
+
 var (
 	// MockEmptyDMPClient TODO
 	// Deprecated: for test
