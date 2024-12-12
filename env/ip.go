@@ -81,8 +81,7 @@ func isInnerIp(ipv4 string) bool {
 			return true
 		}
 	}
-	// The number starts from 1 to 15, and can also be an intranet IP.
-	if firstNum >= 1 && firstNum <= 15 {
+	if firstNum >= 1 && firstNum <= 255 {
 		return true
 	}
 	return false

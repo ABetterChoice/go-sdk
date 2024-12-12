@@ -150,7 +150,7 @@ func (c *userContext) fillOption(options *experiment.Options) {
 	options.DecisionID = c.decisionID
 	options.NewUnitID = c.newUnitID
 	options.NewDecisionID = c.newDecisionID
-	options.DMPTagResult = make(map[string]bool)
+	options.DMPTagValueResult = make(map[string]string)
 	options.HoldoutLayerResult = make(map[string]*experiment.Experiment)
 	options.IsDisableDMP = internal.C.IsDisableDMP
 }

@@ -209,9 +209,6 @@ func (e *executor) fillOptions(ctx context.Context, application *cache.Applicati
 	e.setOverrideList(application, options)
 	options.Application = application
 	if !options.IsDisableDMP && options.IsPreparedDMPTag {
-		if len(options.LayerKeys) < 5 {
-			return nil
-		}
 		err := e.preparedDMP(ctx, application, options)
 		if err != nil {
 			return err
@@ -224,38 +221,34 @@ func (e *executor) preparedDMP(ctx context.Context, application *cache.Applicati
 	if len(application.DMPTagInfo) == 0 {
 		return nil
 	}
-	batchGetDMPTagResultReq := &protoc_dmp_proxy_server.BatchGetDMPTagResultReq{}
 	for unitIDType, platformDMPTagIndex := range application.DMPTagInfo {
 		for platformCode, tagSet := range platformDMPTagIndex {
 			if len(tagSet) <= 1 {
 				continue
 			}
-			batchGetDMPTagResultReq.ReqList = append(batchGetDMPTagResultReq.ReqList,
-				&protoc_dmp_proxy_server.GetDMPTagResultReq{
-					ProjectId:       application.ProjectID,
-					UnitId:          getUnitID(unitIDType, options),
-					UnitType:        int64(unitIDType),
-					SdkVersion:      env.SDKVersion,
-					DmpPlatformCode: protoc_dmp_proxy_server.DMPPlatform(platformCode),
-					TagList:         convertMap2Array(tagSet),
-				})
-			for tagKey := range tagSet {
-				options.DMPTagResult[dmpTagResultKeyFormat(unitIDType, platformCode, tagKey, options)] = false
+			req := &protoc_dmp_proxy_server.BatchGetTagValueReq{
+				ProjectId:       application.ProjectID,
+				UnitId:          getUnitID(unitIDType, options),
+				UnitType:        int64(unitIDType),
+				SdkVersion:      env.SDKVersion,
+				DmpPlatformCode: protoc_dmp_proxy_server.DMPPlatform(platformCode),
+				TagList:         convertMap2Array(tagSet),
 			}
-		}
-	}
-	if len(batchGetDMPTagResultReq.ReqList) == 0 {
-		return nil
-	}
-	batchGetDMPTagResultResp, err := client.DC.BatchGetDMPTagResult(ctx, batchGetDMPTagResultReq)
-	if err != nil {
-		return errors.Wrap(err, "batchGetDMPTagResult")
-	}
-	for _, resp := range batchGetDMPTagResultResp.RespList {
-		for tagKey, statusCode := range resp.DmpResult {
-			options.DMPTagResult[dmpTagResultKeyFormat(protoccacheserver.UnitIDType(resp.UnitType),
-				int64(resp.DmpPlatformCode), tagKey, options)] =
-				statusCode == protoc_dmp_proxy_server.StatusCode_STATUS_CODE_HIT
+			resp, err := client.DC.BatchGetTagValue(ctx, req)
+			if err != nil {
+				log.Errorf("[req=%+v]BatchGetTagValue fail:%v", req, err)
+				continue
+			}
+			if resp.RetCode != protoc_dmp_proxy_server.RetCode_RET_CODE_SUCCESS {
+				log.Errorf("[req=%+v]BatchGetTagValue invalid code=%v, message=%v", req, resp.RetCode, resp.Message)
+				continue
+			}
+			if options.DMPTagValueResult == nil {
+				options.DMPTagValueResult = make(map[string]string)
+			}
+			for key, value := range resp.TagResult {
+				options.DMPTagValueResult[key] = value
+			}
 		}
 	}
 	return nil
@@ -525,9 +518,18 @@ func IsHitTag(ctx context.Context, tagListGroup []*protoccacheserver.TagList, op
 		isHit := true
 		for _, tag := range tagList.TagList {
 			if tag.TagType == protoccacheserver.TagType_TAG_TYPE_DMP {
-				dmpFlag, err := isHitDMP(ctx, tag, options)
+				if options.IsDisableDMP { // 禁用 结果都为 false
+					return false, nil
+				}
+				dmpFlagStr, err := getTagValue(ctx, tag, options)
 				if err != nil {
-					return false, errors.Wrap(err, "isHitDMP")
+					log.Errorf("[tag=%v]getTagValue fail:%v", err)
+					return false, nil
+				}
+				dmpFlag, err := strconv.ParseBool(dmpFlagStr)
+				if err != nil {
+					log.Errorf("dmpFlag=%v needs to be convertible to bool type:%v", dmpFlagStr, err)
+					return false, nil
 				}
 				if dmpFlag && tag.Operator == protoccacheserver.Operator_OPERATOR_FALSE ||
 					!dmpFlag && tag.Operator == protoccacheserver.Operator_OPERATOR_TRUE {
@@ -535,6 +537,23 @@ func IsHitTag(ctx context.Context, tagListGroup []*protoccacheserver.TagList, op
 					break
 				}
 				continue
+			}
+			if tag.TagOrigin == protoccacheserver.TagOrigin_TAG_ORIGIN_DMP {
+				if options.IsDisableDMP { // 禁用 结果都为 false
+					return false, nil
+				}
+				value, err := getTagValue(ctx, tag, options)
+				if err != nil {
+					log.Errorf("[tag=%v]getTagValue fail:%v", tag.Key, err)
+					return false, nil
+				}
+				if v, ok := options.AttributeTag[tag.Key]; ok {
+					log.Warnf("replace tagValue[key=%s, value=%s]", tag.Key, v)
+				}
+				if options.AttributeTag == nil {
+					options.AttributeTag = make(map[string][]string)
+				}
+				options.AttributeTag[tag.Key] = []string{value}
 			}
 			if !tagutil.IsHit(tag.TagType, tag.Operator, options.AttributeTag[tag.Key], tag.Value) {
 				isHit = false
@@ -548,23 +567,34 @@ func IsHitTag(ctx context.Context, tagListGroup []*protoccacheserver.TagList, op
 	return false, nil
 }
 
-func isHitDMP(ctx context.Context, tag *protoccacheserver.Tag, options *Options) (bool, error) {
-	if options.IsDisableDMP { // 禁用 结果都为 false
-		return false, nil
-	}
-	flag, ok := options.DMPTagResult[dmpTagResultKeyFormat(tag.UnitIdType, tag.DmpPlatform, tag.Value, options)]
+func getTagValue(ctx context.Context, tag *protoccacheserver.Tag, options *Options) (string, error) {
+	value, ok := options.DMPTagValueResult[dmpTagResultKeyFormat(tag.UnitIdType, tag.DmpPlatform, tag.Value, options)]
 	if ok {
-		return flag, nil
+		return value, nil
 	}
-	flag, err := client.IsHitDMP(ctx, &protoc_dmp_proxy_server.GetDMPTagResultReq{}, tag.Value)
+	resp, err := client.DC.BatchGetTagValue(ctx, &protoc_dmp_proxy_server.BatchGetTagValueReq{
+		ProjectId:       options.Application.ProjectID,
+		UnitId:          options.UnitID,
+		UnitType:        0,
+		SdkVersion:      env.SDKVersion,
+		DmpPlatformCode: protoc_dmp_proxy_server.DMPPlatform(tag.DmpPlatform),
+		TagList:         []string{tag.Key},
+	})
 	if err != nil {
-		return false, err
+		return "", err
 	}
-	if options.DMPTagResult == nil {
-		options.DMPTagResult = make(map[string]bool)
+	if resp.RetCode != protoc_dmp_proxy_server.RetCode_RET_CODE_SUCCESS {
+		return "", errors.Errorf("invalid result, code=%v, message=%v", resp.RetCode, resp.Message)
 	}
-	options.DMPTagResult[dmpTagResultKeyFormat(tag.UnitIdType, tag.DmpPlatform, tag.Value, options)] = flag
-	return flag, nil
+	value, ok = resp.TagResult[tag.Key]
+	if !ok {
+		return "", errors.Errorf("value is empty")
+	}
+	if options.DMPTagValueResult == nil {
+		options.DMPTagValueResult = make(map[string]string)
+	}
+	options.DMPTagValueResult[dmpTagResultKeyFormat(tag.UnitIdType, tag.DmpPlatform, tag.Value, options)] = value
+	return value, nil
 }
 
 func dmpTagResultKeyFormat(unitIDType protoccacheserver.UnitIDType, dmpPlatformCode int64,
