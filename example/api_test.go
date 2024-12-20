@@ -4,6 +4,7 @@ package example
 import (
 	"context"
 	"encoding/base64"
+	"fmt"
 	"net/http"
 	"net/http/pprof"
 	"sync"
@@ -14,21 +15,54 @@ import (
 	"github.com/abetterchoice/go-sdk/env"
 	"github.com/abetterchoice/go-sdk/plugin/log"
 	"github.com/abetterchoice/go-sdk/testdata"
+	"github.com/abetterchoice/protoc_dmp_proxy_server"
 	"github.com/abetterchoice/protoc_event_server"
 	"github.com/golang/protobuf/proto"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 )
 
+type DMPClient struct {
+}
+
+func (D DMPClient) BatchGetTagValue(ctx context.Context, req *protoc_dmp_proxy_server.BatchGetTagValueReq) (*protoc_dmp_proxy_server.BatchGetTagValueResp, error) {
+	// var rsp protoc_dmp_proxy_server.BatchGetTagValueResp
+	// rsp.TagResult = map[string]string{
+	//	"is_new_user": "false",
+	// }
+	// return &rsp, nil
+	// log.Infof("%+v", req)
+	var rsp protoc_dmp_proxy_server.BatchGetTagValueResp
+	rsp.RetCode = protoc_dmp_proxy_server.RetCode_RET_CODE_SUCCESS
+	rsp.TagResult = map[string]string{
+		"is_new_user":  "false",
+		"acc_share_pv": "",
+		"51":           "1",
+		"44":           "2",
+		"54":           "3",
+		"city":         "",
+		"40":           "",
+		"43":           "",
+		"47":           "",
+		"55":           "",
+	}
+	rsp.UnitId = req.UnitId
+	rsp.DmpPlatformCode = req.DmpPlatformCode
+
+	fmt.Printf(">>>>>>> %+v\n", req)
+	return &rsp, nil
+}
+
 func TestTGLog(t *testing.T) {
-	t.Skip()
-	pID := "36"
-	// env.RegisterAddr(env.TypePrd, "https://openapi.sg.abetterchoice.ai")
+	// t.Skip()
+	pID := "96665"
+	env.RegisterAddr(env.TypePrd, "http://abc-minigame-test-openapi.woa.com")
 	// Initialize the sdk. The global initialization only needs to be done once.
 	log.SetLoggerLevel(log.ErrorLevel)
 	err := sdk.Init(context.TODO(), []string{pID},
 		sdk.WithEnvType(env.TypePrd),
-		sdk.WithSecretKey(""),
+		sdk.WithRegisterDMPClient(&DMPClient{}),
+		sdk.WithSecretKey("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3MjkxMjg4NDEsImlhdCI6MTcyOTEyODg0MiwidG9rZW5OYW1lIjoiOTY2NjVfZGVmYXVsdF8wOTM0MDIifQ.XiKv_HTs9PaQeHxMLVrP8KQKHq-JcS9yqMkmMUGqiXA"),
 		// sdk.WithRegisterMetricsPlugin(tglog.Client, &protoc_cache_server.MetricsInitConfig{
 		//	Region: "",
 		//	Addr:   "127.0.0.1:8888",
@@ -38,8 +72,18 @@ func TestTGLog(t *testing.T) {
 	if err != nil {
 		t.Fatalf("init fail:%v", err)
 	}
-	// sdk.Release()
-	time.Sleep(20 * time.Second)
+	userCtx := sdk.NewUserContext("xx", sdk.WithTags(map[string][]string{
+		"key1": {"1"},
+		"key3": {"false"},
+	}))
+	resp, err := userCtx.GetExperiments(context.TODO(), pID, sdk.WithLayerKey("dynawen_test_1"), sdk.WithIsPreparedDMPTag(true))
+	if err != nil {
+		t.Fatalf("getExperiments fail:%v", err)
+	}
+	for layerKey, exp := range resp.Data {
+		t.Logf("%s %v", layerKey, exp)
+	}
+	sdk.Release()
 }
 
 func TestInit(t *testing.T) {

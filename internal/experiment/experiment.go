@@ -247,7 +247,8 @@ func (e *executor) preparedDMP(ctx context.Context, application *cache.Applicati
 				options.DMPTagValueResult = make(map[string]string)
 			}
 			for key, value := range resp.TagResult {
-				options.DMPTagValueResult[key] = value
+				options.DMPTagValueResult[dmpTagResultKeyFormat(protoccacheserver.UnitIDType(req.UnitType),
+					int64(req.DmpPlatformCode), key, options)] = value
 			}
 		}
 	}
@@ -568,7 +569,8 @@ func IsHitTag(ctx context.Context, tagListGroup []*protoccacheserver.TagList, op
 }
 
 func getTagValue(ctx context.Context, tag *protoccacheserver.Tag, options *Options) (string, error) {
-	value, ok := options.DMPTagValueResult[dmpTagResultKeyFormat(tag.UnitIdType, tag.DmpPlatform, tag.Value, options)]
+	key := dmpTagResultKeyFormat(tag.UnitIdType, tag.DmpPlatform, tag.Key, options)
+	value, ok := options.DMPTagValueResult[key]
 	if ok {
 		return value, nil
 	}
@@ -593,7 +595,7 @@ func getTagValue(ctx context.Context, tag *protoccacheserver.Tag, options *Optio
 	if options.DMPTagValueResult == nil {
 		options.DMPTagValueResult = make(map[string]string)
 	}
-	options.DMPTagValueResult[dmpTagResultKeyFormat(tag.UnitIdType, tag.DmpPlatform, tag.Value, options)] = value
+	options.DMPTagValueResult[key] = value
 	return value, nil
 }
 
