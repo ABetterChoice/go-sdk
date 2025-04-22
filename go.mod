@@ -6,10 +6,10 @@ require (
 	github.com/RoaringBitmap/roaring v1.2.1
 	github.com/abetterchoice/hashutil v0.0.0-20240612073854-14a51781e8ad
 	github.com/abetterchoice/metrics-pubsub v0.0.0-20240619132001-145052104b60
-	github.com/abetterchoice/protoc_cache_server v0.0.0-20241211123501-c2418ca7b959
+	github.com/abetterchoice/protoc_cache_server v0.0.0-20250422112234-d546680b8d97
 	github.com/abetterchoice/protoc_dmp_proxy_server v0.0.0-20241211131012-b69df5102634
 	github.com/abetterchoice/protoc_event_server v0.0.0-20240614085823-cafaa745b226
-	github.com/abetterchoice/tagutil v0.0.0-20240612073231-fb91e1f4711e
+	github.com/abetterchoice/tagutil v0.0.0-20250422120833-f61c86e633a3
 	github.com/golang/mock v1.6.0
 	github.com/golang/protobuf v1.5.4
 	github.com/google/uuid v1.3.0
