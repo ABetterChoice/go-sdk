@@ -4,6 +4,7 @@ package cache
 import (
 	"context"
 	"fmt"
+	"math"
 	"runtime"
 	"sort"
 	"sync"
@@ -260,7 +261,29 @@ func setupVariantKeyLayerKeyMap(application *Application) {
 
 		}
 	}
+	for key, layerKeys := range variantKeyLayerKeyMap {
+		if len(layerKeys) > 1 {
+			sort.Slice(layerKeys, func(i, j int) bool {
+				return minExperimentID(application.LayerIndex[layerKeys[i]]) <
+					minExperimentID(application.LayerIndex[layerKeys[j]])
+			})
+			variantKeyLayerKeyMap[key] = layerKeys
+		}
+	}
 	application.VariantKeyLayerMap = variantKeyLayerKeyMap
+}
+
+func minExperimentID(layer *protoctabcacheserver.Layer) int64 {
+	if layer == nil {
+		return math.MaxInt64
+	}
+	var minID int64 = math.MaxInt64
+	for id := range layer.ExperimentIndex {
+		if id < minID {
+			minID = id
+		}
+	}
+	return minID
 }
 
 func setupMetricsInitConfigIndex(application *Application) {

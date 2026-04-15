@@ -53,21 +53,45 @@ func (c *userContext) GetValueByVariantKey(ctx context.Context, projectID string
 		if err != nil {
 			return nil, errors.Wrap(err, "GetExperiment")
 		}
-		if len(experimentResult.Data) > 1 {
-			return nil, errors.Errorf("invalid variantKey:%s, used by multiple layers:%+v", key, layerKeys)
+		// layerKeys 已按创建时间排序，优先使用命中非默认组（满足受众）的层
+		var fallbackLayerKey string
+		var fallbackGroup *Group
+		for _, layerKey := range layerKeys {
+			group, ok := experimentResult.Data[layerKey]
+			if !ok || group == nil {
+				continue
+			}
+			if !group.IsDefault {
+				data, ok := group.GetBytes(key)
+				if !ok {
+					data, err = experiment.Executor.GetVariantValue(projectID, layerKey, key)
+					if err != nil {
+						return nil, errors.Wrap(err, "getVariantValue")
+					}
+				}
+				vr.data = data
+				vr.Detail.GroupKey = group.Key
+				vr.Detail.ExperimentKey = group.ExperimentKey
+				vr.Detail.LayerKey = layerKey
+				return vr, nil
+			}
+			if fallbackLayerKey == "" {
+				fallbackLayerKey = layerKey
+				fallbackGroup = group
+			}
 		}
-		for layerKey, group := range experimentResult.Data {
-			data, ok := group.GetBytes(key)
-			if !ok { // 获取层默认值
-				data, err = experiment.Executor.GetVariantValue(projectID, layerKey, key)
+		if fallbackGroup != nil {
+			data, ok := fallbackGroup.GetBytes(key)
+			if !ok {
+				data, err = experiment.Executor.GetVariantValue(projectID, fallbackLayerKey, key)
 				if err != nil {
 					return nil, errors.Wrap(err, "getVariantValue")
 				}
 			}
 			vr.data = data
-			vr.Detail.GroupKey = group.Key
-			vr.Detail.ExperimentKey = group.ExperimentKey
-			vr.Detail.LayerKey = layerKey
+			vr.Detail.GroupKey = fallbackGroup.Key
+			vr.Detail.ExperimentKey = fallbackGroup.ExperimentKey
+			vr.Detail.LayerKey = fallbackLayerKey
 			return vr, nil
 		}
 		return vr, nil
