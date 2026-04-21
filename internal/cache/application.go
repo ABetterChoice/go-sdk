@@ -251,14 +251,14 @@ func refreshApplication(ctx context.Context, projectID string) (*Application, bo
 func setupVariantKeyLayerKeyMap(application *Application) {
 	var variantKeyLayerKeyMap = make(map[string][]string)
 	for layerKey, layer := range application.LayerIndex {
+		seen := make(map[string]bool)
 		for _, group := range layer.GroupIndex {
-			if group.IsDefault {
-				for key := range group.Params {
+			for key := range group.Params {
+				if !seen[key] {
+					seen[key] = true
 					variantKeyLayerKeyMap[key] = append(variantKeyLayerKeyMap[key], layerKey)
 				}
-				continue
 			}
-
 		}
 	}
 	for key, layerKeys := range variantKeyLayerKeyMap {
