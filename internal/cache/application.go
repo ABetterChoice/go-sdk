@@ -279,6 +279,11 @@ func minExperimentID(layer *protoctabcacheserver.Layer) int64 {
 	}
 	var minID int64 = math.MaxInt64
 	for id := range layer.ExperimentIndex {
+		// 跳过 id<=0 的占位实验（每个 layer 都会被塞一个 id=0 的空实验）
+		// 否则不同 layer 的 minExperimentID 永远都是 0，layerKeys 排序退化成不稳定排序
+		if id <= 0 {
+			continue
+		}
 		if id < minID {
 			minID = id
 		}
