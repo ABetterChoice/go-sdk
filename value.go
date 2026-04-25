@@ -53,7 +53,8 @@ func (c *userContext) GetValueByVariantKey(ctx context.Context, projectID string
 		if err != nil {
 			return nil, errors.Wrap(err, "GetExperiment")
 		}
-		// layerKeys 已按创建时间排序，优先使用命中非默认组（满足受众）的层
+		// layerKeys 按 layer 上"最小实验 ID"升序排序（近似为 layer 上最早实验的创建顺序），
+		// 优先使用命中非默认组（满足受众）的层
 		var fallbackLayerKey string
 		var fallbackGroup *Group
 		for _, layerKey := range layerKeys {
@@ -71,6 +72,8 @@ func (c *userContext) GetValueByVariantKey(ctx context.Context, projectID string
 				}
 				vr.data = data
 				vr.Detail.GroupKey = group.Key
+				vr.Detail.VariantID = group.ID
+				vr.Detail.ExperimentID = group.ExperimentID
 				vr.Detail.ExperimentKey = group.ExperimentKey
 				vr.Detail.LayerKey = layerKey
 				return vr, nil
@@ -90,6 +93,8 @@ func (c *userContext) GetValueByVariantKey(ctx context.Context, projectID string
 			}
 			vr.data = data
 			vr.Detail.GroupKey = fallbackGroup.Key
+			vr.Detail.VariantID = fallbackGroup.ID
+			vr.Detail.ExperimentID = fallbackGroup.ExperimentID
 			vr.Detail.ExperimentKey = fallbackGroup.ExperimentKey
 			vr.Detail.LayerKey = fallbackLayerKey
 			return vr, nil
@@ -112,11 +117,13 @@ type ValueResult struct {
 }
 
 type valueDetail struct {
-	ExperimentKey string   // Non-empty means the experiment was completed to obtain parameter values, and the specific experiment was hit
-	GroupKey      string   // Non-empty means the experiment was completed to obtain parameter values. The specific experimental version hit
-	LayerKeys     []string // Non-empty means the experiment was completed to obtain parameter values. The parameters may be on multiple mutually exclusive layers
-	LayerKey      string   // Non-empty means the experimental layer that was finally hit
-	ConfigKey     string   // Non-empty means the configuration was completed to obtain parameter values
+	ExperimentID  int64    // 非零说明走了实验获取参数值，命中的具体实验 ID
+	ExperimentKey string   // 非空说明走了实验获取参数值，命中的具体实验
+	VariantID     int64    // 非零说明走了实验获取参数值，命中的具体 variant（实验组）ID
+	GroupKey      string   // 非空说明走了实验获取参数值 命中的具体实验版本（= variant key）
+	LayerKeys     []string // 非空说明走了实验获取参数值，参数可能在多个互斥层上
+	LayerKey      string   // 非空说明最终命中的实验层
+	ConfigKey     string   // 非空说明走了配置获取参数值
 }
 
 // Value Parameter Value
