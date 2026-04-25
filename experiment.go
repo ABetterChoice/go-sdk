@@ -176,6 +176,7 @@ func convertGroup2ExperimentWithoutHoldout(group *experiment.Experiment) *Group 
 	return &Group{
 		ID:             group.Id,
 		Key:            group.GroupKey,
+		ExperimentID:   group.ExperimentId,
 		ExperimentKey:  group.ExperimentKey,
 		LayerKey:       group.LayerKey,
 		IsDefault:      group.IsDefault,

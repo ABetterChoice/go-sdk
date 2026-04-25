@@ -35,6 +35,9 @@ type Group struct {
 	// group Key
 	Key string `json:"key"`
 
+	// Experiment ID
+	ExperimentID int64 `json:"experimentId"`
+
 	// Experiment Key
 	ExperimentKey string `json:"experimentKey"`
 
