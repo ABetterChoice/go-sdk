@@ -127,7 +127,7 @@ if err == nil {
 
 This method is similar to the previous one, with the only difference being that instead of fetching by layer name, we retrieve the result by parameter name, which is unique within the same project. We are planning to introduce features that may allow users to move the parameter from one layer to another (e.g., launcher layer), and this API will be useful in handling such cases.
 
-When the same parameter key is exposed by multiple layers, the SDK iterates the layers in creation order (smaller experiment ID first) and returns the first one whose audience matches a non-default group, falling back to the first matched default group. The call no longer errors out in the multi-layer case.
+When the same parameter key is exposed by multiple layers, the SDK ranks those layers by the smallest experiment ID each layer owns (i.e. the creation time of every layer's earliest experiment), then walks them in that order: it returns the first one whose audience matches a non-default group, falling back to the first matched default group. The call no longer errors out in the multi-layer case.
 
 ```go
 result, err := abcUserContext.GetValueByVariantKey(context.TODO(), "project_id", "should_show_banner")
