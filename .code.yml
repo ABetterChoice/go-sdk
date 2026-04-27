@@ -1,0 +1,60 @@
+# .code.yml规范:
+# https://git.code.oa.com/videobase/videonavi/blob/master/vepc/docs/specification/spec_code_yml.md
+
+# VEPC相关配置
+vepc:
+  ci:
+    params:
+      compile_image: "mirrors.tencent.com/vepc/golang1.18:v0.0.1"
+      run_codecc: 0
+      run_unit_test: 0
+      run_unittest: 0
+      run_ngtest: 0
+      run_leader_check: 0
+      force_deploy_pre_flag: -1
+      run_pre_deploy: -1
+      run_formal_deploy: -1
+  # VEPC基础配置：name 字段格式 = platform://app.server/language/framework
+  # 该字段会被 `vepc ci vepc_name_*` 解析为 platform/app/server/language/frame 五段
+  basic:
+    name: "123://TAB.abetterchoice_go_sdk/go/none"
+    tag:
+      - "abetterchoice_go_sdk"
+
+# 定义项目分支命名规范
+branch:
+  trunk_name: "master"
+  branch_type_B:
+    personal_feature:
+      pattern: "feature/${userID}_${storyID}"
+    bugfix:
+      pattern: "bugfix/${userID}_${bugID}"
+    single_release:
+      pattern: "release"
+    hotfix_release:
+      pattern: "hotfix/[${versionname}][_${description}]"
+    tag:
+      pattern: "v${versionnumber}"
+
+artifact:
+  - path: "/"
+    artifact_name: "abetterchoice_go_sdk"
+    # 发布单元类型: 移动端/PC端/后台单体应用/后台微服务/web/sdk/lib/框架
+    artifact_type: "sdk"
+    repository_url: "https://git.woa.com/tencent_abtest/open-source/abetterchoice-go-sdk"
+    dependence_conf: "go.mod"
+
+source:
+  test_source:
+    filepath_regex: [".*_test\\.go"]
+  auto_generate_source:
+    filepath_regex: [".*\\.pb\\.go", ".*_mock\\.go"]
+  third_party_source:
+    filepath_regex: [".*vendor/.*", ".*third_party/.*"]
+
+# 针对整个项目默认代码评审配置
+code_review:
+  restrict_labels: ["CR-编程规范", "CR-业务逻辑", "CR-边界逻辑", "CR-代码架构", "CR-性能影响", "CR-安全性", "CR-可测试性", "CR-可读性"]
+
+# .code.yml 版本
+version: 1.1
