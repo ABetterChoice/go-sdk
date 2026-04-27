@@ -46,9 +46,9 @@ func GetAllRemoteConfigs(projectID string) (map[string]*Value, error) {
 		if rc == nil {
 			continue
 		}
-		data := make([]byte, len(rc.DefaultValue))
-		copy(data, rc.DefaultValue)
-		result[key] = &Value{data: data}
+		// 与 GetRemoteConfig 一致，直接共享底层切片；Value 的所有读取方法
+		// （Bytes/String/GetJSONMap 等）都是只读，并且 Bytes 返回时会复制一份。
+		result[key] = &Value{data: rc.DefaultValue}
 	}
 	return result, nil
 }

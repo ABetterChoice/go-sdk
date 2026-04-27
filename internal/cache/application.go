@@ -264,8 +264,14 @@ func setupVariantKeyLayerKeyMap(application *Application) {
 	for key, layerKeys := range variantKeyLayerKeyMap {
 		if len(layerKeys) > 1 {
 			sort.Slice(layerKeys, func(i, j int) bool {
-				return minExperimentID(application.LayerIndex[layerKeys[i]]) <
-					minExperimentID(application.LayerIndex[layerKeys[j]])
+				ai := minExperimentID(application.LayerIndex[layerKeys[i]])
+				aj := minExperimentID(application.LayerIndex[layerKeys[j]])
+				if ai != aj {
+					return ai < aj
+				}
+				// 次级键：layerKey 字典序，避免两个 layer 的 minExperimentID 同为 MaxInt64
+				// （都没有真实实验）时排序退化成不确定顺序
+				return layerKeys[i] < layerKeys[j]
 			})
 			variantKeyLayerKeyMap[key] = layerKeys
 		}

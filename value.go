@@ -12,18 +12,26 @@ import (
 
 // GetValueByVariantKey retrieves the parameter value using the globally unique parameter key.
 //
-//	// It first attempts to find the value among all parameters under all experiments within the given project ID.
-//	// If the parameter value is not found, it continues to search for this parameter among all feature flags
-//	// under the project ID until the value is found.
-//	//
-//	// Parameters:
-//	// ctx: The context for the operation.
-//	// projectID: The ID of the project where the search is performed.
-//	// key: The globally unique key that identifies the parameter.
-//	// opts: Additional experiment options.
-//	//
-//	// Returns:
-//	// A pointer to the ValueResult object containing the found value and an error, if any occurred during the search.
+// Resolution order:
+//  1. If key is bound to one or more experiment layers, walk those layers in
+//     ascending order of each layer's earliest experiment ID. Use the first
+//     layer where the user is hit by a real experiment group (IsDefault=false)
+//     AND that group has configured this key.
+//  2. Otherwise (key is not on any layer, or no layer satisfies the condition
+//     above), fall back to the remote config resolution flow
+//     (override list / holdout / condition list / static default value).
+//
+// Parameters:
+//
+//	ctx: The context for the operation.
+//	projectID: The ID of the project where the search is performed.
+//	key: The globally unique key that identifies the parameter.
+//	opts: Additional experiment options.
+//
+// Returns:
+//
+//	A pointer to the ValueResult object containing the resolved value, and an
+//	error if any occurred during the lookup.
 func (c *userContext) GetValueByVariantKey(ctx context.Context, projectID string, key string,
 	opts ...ExperimentOption) (*ValueResult, error) {
 	options := defaultExperimentOptions // 拷贝，defaultExperimentOptions 作为模板保持不变
@@ -47,59 +55,37 @@ func (c *userContext) GetValueByVariantKey(ctx context.Context, projectID string
 			LayerKeys: layerKeys,
 		},
 	}
-	if len(layerKeys) != 0 { // The parameter is on the experimental layer, get the parameter value hit by the experiment
-		opts = append(opts, WithLayerKeyList(layerKeys))
-		experimentResult, err := c.GetExperiments(ctx, projectID, opts...)
+<<<<<<< HEAD
+	if len(layerKeys) != 0 {
+		// layerKeys 已按层上"最早实验 ID"升序排序（近似为最早实验的创建顺序）。
+		// 优先使用第一个"命中真实验且实验组配置了 key"的层；
+		// 任意层都不满足时 fallback 到参数本身的远程配置流程
+		// （白名单 / holdout / condition / 参数静态默认值）。
+		experimentOpts := make([]ExperimentOption, 0, len(opts)+1)
+		experimentOpts = append(experimentOpts, opts...)
+		experimentOpts = append(experimentOpts, WithLayerKeyList(layerKeys))
+		experimentResult, err := c.GetExperiments(ctx, projectID, experimentOpts...)
 		if err != nil {
 			return nil, errors.Wrap(err, "GetExperiment")
 		}
-		// layerKeys 按 layer 上"最小实验 ID"升序排序（近似为 layer 上最早实验的创建顺序），
-		// 优先使用命中非默认组（满足受众）的层
-		var fallbackLayerKey string
-		var fallbackGroup *Group
 		for _, layerKey := range layerKeys {
 			group, ok := experimentResult.Data[layerKey]
-			if !ok || group == nil {
+			if !ok || group == nil || group.IsDefault {
 				continue
 			}
-			if !group.IsDefault {
-				data, ok := group.GetBytes(key)
-				if !ok {
-					data, err = experiment.Executor.GetVariantValue(projectID, layerKey, key)
-					if err != nil {
-						return nil, errors.Wrap(err, "getVariantValue")
-					}
-				}
-				vr.data = data
-				vr.Detail.GroupKey = group.Key
-				vr.Detail.VariantID = group.ID
-				vr.Detail.ExperimentID = group.ExperimentID
-				vr.Detail.ExperimentKey = group.ExperimentKey
-				vr.Detail.LayerKey = layerKey
-				return vr, nil
-			}
-			if fallbackLayerKey == "" {
-				fallbackLayerKey = layerKey
-				fallbackGroup = group
-			}
-		}
-		if fallbackGroup != nil {
-			data, ok := fallbackGroup.GetBytes(key)
+			data, ok := group.GetBytes(key)
 			if !ok {
-				data, err = experiment.Executor.GetVariantValue(projectID, fallbackLayerKey, key)
-				if err != nil {
-					return nil, errors.Wrap(err, "getVariantValue")
-				}
+				// 实验组没配该 key，视为该层在该 key 上未命中，继续下一层
+				continue
 			}
 			vr.data = data
-			vr.Detail.GroupKey = fallbackGroup.Key
-			vr.Detail.VariantID = fallbackGroup.ID
-			vr.Detail.ExperimentID = fallbackGroup.ExperimentID
-			vr.Detail.ExperimentKey = fallbackGroup.ExperimentKey
-			vr.Detail.LayerKey = fallbackLayerKey
+			vr.Detail.GroupKey = group.Key
+			vr.Detail.VariantID = group.ID
+			vr.Detail.ExperimentID = group.ExperimentID
+			vr.Detail.ExperimentKey = group.ExperimentKey
+			vr.Detail.LayerKey = layerKey
 			return vr, nil
 		}
-		return vr, nil
 	}
 	configResult, err := c.GetRemoteConfig(ctx, projectID, key, opts...)
 	if err != nil {
