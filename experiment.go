@@ -16,6 +16,7 @@ import (
 )
 
 var (
+	tokenDataEnvTagKey = "TAB_DATA_ENV"
 	// defaultExperimentOptions global defaults, as templates remain unchanged,
 	// abtest shunting process is passed by value without using references
 	// the objects here cannot have pointer instances, otherwise there will be concurrency problems.
@@ -145,7 +146,7 @@ func GetDefaultExperiments(ctx context.Context, projectID string, opts ...Experi
 // fillOption the attributes with userContext into options for subsequent use of abtest offloading.
 // fill in the default value. The opt function will overwrite the following default value.
 func (c *userContext) fillOption(options *experiment.Options) {
-	options.AttributeTag = c.tags
+	options.AttributeTag = mergeAttributeTagWithTokenDataEnv(c.tags, internal.C.TokenDataEnv)
 	options.UnitID = c.unitID
 	options.DecisionID = c.decisionID
 	options.NewUnitID = c.newUnitID
@@ -153,6 +154,24 @@ func (c *userContext) fillOption(options *experiment.Options) {
 	options.DMPTagValueResult = make(map[string]string)
 	options.HoldoutLayerResult = make(map[string]*experiment.Experiment)
 	options.IsDisableDMP = internal.C.IsDisableDMP
+}
+
+func mergeAttributeTagWithTokenDataEnv(tags map[string][]string, tokenDataEnv string) map[string][]string {
+	if len(tags) == 0 && tokenDataEnv == "" {
+		return tags
+	}
+	result := make(map[string][]string, len(tags)+1)
+	for key, value := range tags {
+		result[key] = append([]string(nil), value...)
+	}
+	if tokenDataEnv == "" {
+		return result
+	}
+	if _, ok := result[tokenDataEnvTagKey]; ok {
+		return result
+	}
+	result[tokenDataEnvTagKey] = []string{tokenDataEnv}
+	return result
 }
 
 func convertGroup2Experiment(group *experiment.Experiment) *Group {
