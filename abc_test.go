@@ -3,12 +3,15 @@ package abc
 
 import (
 	"context"
+	"encoding/base64"
+	"fmt"
 	"reflect"
 	"testing"
 
 	"github.com/abetterchoice/go-sdk/env"
 	"github.com/abetterchoice/go-sdk/internal"
 	"github.com/abetterchoice/go-sdk/internal/client"
+	"github.com/abetterchoice/go-sdk/internal/experiment"
 	"github.com/abetterchoice/go-sdk/testdata"
 )
 
@@ -16,6 +19,12 @@ var (
 	projectIDList = []string{"123"}
 	projectID     = "123"
 )
+
+func buildTokenWithEnv(envValue string) string {
+	header := base64.RawStdEncoding.EncodeToString([]byte(`{"alg":"HS256","typ":"JWT"}`))
+	payload := base64.RawStdEncoding.EncodeToString([]byte(fmt.Sprintf(`{"TAB_DATA_ENV":"%s"}`, envValue)))
+	return fmt.Sprintf("%s.%s.signature", header, payload)
+}
 
 func TestGetGlobalConfig(t *testing.T) {
 	tests := []struct {
@@ -192,4 +201,87 @@ func TestInit(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestWithSecretKeyTokenDataEnv(t *testing.T) {
+	testToken := buildTokenWithEnv("test")
+	grayToken := buildTokenWithEnv("gray")
+
+	t.Run("parse TAB_DATA_ENV from token", func(t *testing.T) {
+		config := &internal.GlobalConfig{EnvType: env.TypePrd}
+		err := WithSecretKey(testToken)(config)
+		if err != nil {
+			t.Fatalf("WithSecretKey() error = %v", err)
+		}
+		if config.TokenDataEnv != "test" {
+			t.Fatalf("TokenDataEnv = %s, want %s", config.TokenDataEnv, "test")
+		}
+		if config.EnvType != env.TypePrd {
+			t.Fatalf("EnvType = %s, want %s", config.EnvType, env.TypePrd)
+		}
+	})
+
+	t.Run("keep EnvType unchanged after parsing token env", func(t *testing.T) {
+		config := &internal.GlobalConfig{EnvType: env.TypePrd}
+		if err := WithEnvType(env.TypePrd)(config); err != nil {
+			t.Fatalf("WithEnvType() error = %v", err)
+		}
+		if err := WithSecretKey(testToken)(config); err != nil {
+			t.Fatalf("WithSecretKey() error = %v", err)
+		}
+		if config.EnvType != env.TypePrd {
+			t.Fatalf("EnvType = %s, want %s", config.EnvType, env.TypePrd)
+		}
+	})
+
+	t.Run("accept non standard token data env value", func(t *testing.T) {
+		config := &internal.GlobalConfig{EnvType: env.TypePrd}
+		if err := WithSecretKey(grayToken)(config); err != nil {
+			t.Fatalf("WithSecretKey() error = %v", err)
+		}
+		if config.TokenDataEnv != "gray" {
+			t.Fatalf("TokenDataEnv = %s, want %s", config.TokenDataEnv, "gray")
+		}
+	})
+}
+
+func TestFillOptionTokenDataEnvTag(t *testing.T) {
+	oldConfig := internal.C
+	defer func() {
+		internal.C = oldConfig
+	}()
+
+	t.Run("inject TAB_DATA_ENV when user tag missing", func(t *testing.T) {
+		internal.C = &internal.GlobalConfig{TokenDataEnv: "test"}
+		userCtx := &userContext{
+			unitID:        "u1",
+			decisionID:    "d1",
+			newUnitID:     "u1",
+			newDecisionID: "d1",
+			tags:          map[string][]string{"region": {"sg"}},
+		}
+		options := &experiment.Options{}
+		userCtx.fillOption(options)
+		got, ok := options.AttributeTag["TAB_DATA_ENV"]
+		if !ok || len(got) != 1 || got[0] != "test" {
+			t.Fatalf("TAB_DATA_ENV = %v, want [test]", got)
+		}
+	})
+
+	t.Run("keep user TAB_DATA_ENV tag as highest priority", func(t *testing.T) {
+		internal.C = &internal.GlobalConfig{TokenDataEnv: "test"}
+		userCtx := &userContext{
+			unitID:        "u1",
+			decisionID:    "d1",
+			newUnitID:     "u1",
+			newDecisionID: "d1",
+			tags:          map[string][]string{"TAB_DATA_ENV": {"prod"}},
+		}
+		options := &experiment.Options{}
+		userCtx.fillOption(options)
+		got := options.AttributeTag["TAB_DATA_ENV"]
+		if len(got) != 1 || got[0] != "prod" {
+			t.Fatalf("TAB_DATA_ENV = %v, want [prod]", got)
+		}
+	})
 }

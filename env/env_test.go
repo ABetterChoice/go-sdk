@@ -2,12 +2,20 @@
 package env
 
 import (
+	"encoding/base64"
+	"fmt"
 	"testing"
 
 	"github.com/abetterchoice/protoc_cache_server"
 	"github.com/abetterchoice/protoc_event_server"
 	"github.com/pkg/errors"
 )
+
+func buildTokenWithEnv(envValue string) string {
+	header := base64.RawStdEncoding.EncodeToString([]byte(`{"alg":"HS256","typ":"JWT"}`))
+	payload := base64.RawStdEncoding.EncodeToString([]byte(fmt.Sprintf(`{"TAB_DATA_ENV":"%s"}`, envValue)))
+	return fmt.Sprintf("%s.%s.signature", header, payload)
+}
 
 func TestInvokePath(t *testing.T) {
 	type args struct {
@@ -291,6 +299,49 @@ func TestSamplingInterval(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := SamplingInterval(tt.args.config, tt.args.err); got != tt.want {
 				t.Errorf("SamplingInterval() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestTypeBySecretKey(t *testing.T) {
+	tests := []struct {
+		name      string
+		secretKey string
+		want      Type
+		wantOK    bool
+	}{
+		{
+			name:      "test env",
+			secretKey: buildTokenWithEnv("test"),
+			want:      TypeTest,
+			wantOK:    true,
+		},
+		{
+			name:      "preserve raw payload value",
+			secretKey: buildTokenWithEnv("production"),
+			want:      "production",
+			wantOK:    true,
+		},
+		{
+			name:      "invalid token format",
+			secretKey: "invalid_token",
+			want:      "",
+			wantOK:    false,
+		},
+		{
+			name:      "custom env value",
+			secretKey: buildTokenWithEnv("gray"),
+			want:      "gray",
+			wantOK:    true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, ok := TypeBySecretKey(tt.secretKey)
+			if got != tt.want || ok != tt.wantOK {
+				t.Errorf("TypeBySecretKey() = (%v, %v), want (%v, %v)",
+					got, ok, tt.want, tt.wantOK)
 			}
 		})
 	}
