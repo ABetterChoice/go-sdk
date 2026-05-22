@@ -22,8 +22,8 @@ import (
 	"sort"
 	"testing"
 
-	sdk "git.woa.com/tencent_abtest/open-source/abetterchoice-go-sdk"
-	"git.woa.com/tencent_abtest/open-source/abetterchoice-go-sdk/env"
+	sdk "github.com/abetterchoice/go-sdk"
+	"github.com/abetterchoice/go-sdk/env"
 )
 
 func TestListAllRemoteConfigs(t *testing.T) {

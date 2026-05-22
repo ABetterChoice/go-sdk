@@ -55,7 +55,6 @@ func (c *userContext) GetValueByVariantKey(ctx context.Context, projectID string
 			LayerKeys: layerKeys,
 		},
 	}
-<<<<<<< HEAD
 	if len(layerKeys) != 0 {
 		// layerKeys 已按层上"最早实验 ID"升序排序（近似为最早实验的创建顺序）。
 		// 优先使用第一个"命中真实验且实验组配置了 key"的层；
