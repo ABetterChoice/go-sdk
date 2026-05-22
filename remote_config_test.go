@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"sort"
 	"testing"
 
 	"github.com/abetterchoice/go-sdk/internal/experiment"
@@ -150,4 +151,34 @@ func forTestConfigOption() ConfigOption {
 	return func(options *experiment.Options) error {
 		return nil
 	}
+}
+
+func TestGetAllRemoteConfigs(t *testing.T) {
+	err := Init(context.Background(), projectIDList,
+		WithRegisterCacheClient(testdata.MockCacheClient(t)),
+		WithRegisterDMPClient(testdata.MockEmptyDMPClient))
+	assert.Nil(t, err)
+
+	t.Run("normal", func(t *testing.T) {
+		got, err := GetAllRemoteConfigs(projectID)
+		assert.Nil(t, err)
+		assert.NotNil(t, got)
+
+		t.Logf("[GetAllRemoteConfigs] total=%d", len(got))
+		keys := make([]string, 0, len(got))
+		for k := range got {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		for _, k := range keys {
+			t.Logf("  %s = %q", k, got[k].String())
+		}
+	})
+
+	t.Run("projectID not found", func(t *testing.T) {
+		got, err := GetAllRemoteConfigs("non_existent_project")
+		assert.NotNil(t, err)
+		assert.Nil(t, got)
+		t.Logf("[GetAllRemoteConfigs] err=%v", err)
+	})
 }

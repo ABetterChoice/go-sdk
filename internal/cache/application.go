@@ -4,6 +4,7 @@ package cache
 import (
 	"context"
 	"fmt"
+	"math"
 	"runtime"
 	"sort"
 	"sync"
@@ -250,17 +251,50 @@ func refreshApplication(ctx context.Context, projectID string) (*Application, bo
 func setupVariantKeyLayerKeyMap(application *Application) {
 	var variantKeyLayerKeyMap = make(map[string][]string)
 	for layerKey, layer := range application.LayerIndex {
+		seen := make(map[string]bool)
 		for _, group := range layer.GroupIndex {
-			if group.IsDefault {
-				for key := range group.Params {
+			for key := range group.Params {
+				if !seen[key] {
+					seen[key] = true
 					variantKeyLayerKeyMap[key] = append(variantKeyLayerKeyMap[key], layerKey)
 				}
-				continue
 			}
-
+		}
+	}
+	for key, layerKeys := range variantKeyLayerKeyMap {
+		if len(layerKeys) > 1 {
+			sort.Slice(layerKeys, func(i, j int) bool {
+				ai := minExperimentID(application.LayerIndex[layerKeys[i]])
+				aj := minExperimentID(application.LayerIndex[layerKeys[j]])
+				if ai != aj {
+					return ai < aj
+				}
+				// 次级键：layerKey 字典序，避免两个 layer 的 minExperimentID 同为 MaxInt64
+				// （都没有真实实验）时排序退化成不确定顺序
+				return layerKeys[i] < layerKeys[j]
+			})
+			variantKeyLayerKeyMap[key] = layerKeys
 		}
 	}
 	application.VariantKeyLayerMap = variantKeyLayerKeyMap
+}
+
+func minExperimentID(layer *protoctabcacheserver.Layer) int64 {
+	if layer == nil {
+		return math.MaxInt64
+	}
+	var minID int64 = math.MaxInt64
+	for id := range layer.ExperimentIndex {
+		// 跳过 id<=0 的占位实验（每个 layer 都会被塞一个 id=0 的空实验）
+		// 否则不同 layer 的 minExperimentID 永远都是 0，layerKeys 排序退化成不稳定排序
+		if id <= 0 {
+			continue
+		}
+		if id < minID {
+			minID = id
+		}
+	}
+	return minID
 }
 
 func setupMetricsInitConfigIndex(application *Application) {

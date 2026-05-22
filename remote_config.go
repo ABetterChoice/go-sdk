@@ -11,6 +11,7 @@ import (
 
 	"github.com/abetterchoice/go-sdk/env"
 	"github.com/abetterchoice/go-sdk/internal"
+	"github.com/abetterchoice/go-sdk/internal/cache"
 	"github.com/abetterchoice/go-sdk/internal/config"
 	"github.com/abetterchoice/go-sdk/internal/experiment"
 	"github.com/abetterchoice/go-sdk/plugin/log"
@@ -18,6 +19,39 @@ import (
 	"github.com/abetterchoice/protoc_event_server"
 	"github.com/pkg/errors"
 )
+
+// GetAllRemoteConfigs 返回指定项目下所有远程配置的 key 及其取值快照。
+// 仅从本地缓存读取，不执行命中判断（白名单/holdout/condition），也不上报曝光。
+// 适用于运行时一次性读取所有远程配置的场景。
+//
+// 参数:
+//
+//	projectID: 项目 ID
+//
+// 返回:
+//
+//	map[string]*Value: key 为配置 key，value 为对应的取值（可使用 GetInt64/String 等方法解析）。
+//	error: 当 projectID 对应的本地缓存不存在时返回错误。
+func GetAllRemoteConfigs(projectID string) (map[string]*Value, error) {
+	application := cache.GetApplication(projectID)
+	if application == nil {
+		return nil, errors.Errorf("projectID [%s] not found", projectID)
+	}
+	if application.TabConfig == nil || application.TabConfig.ConfigData == nil {
+		return map[string]*Value{}, nil
+	}
+	configIndex := application.TabConfig.ConfigData.RemoteConfigIndex
+	result := make(map[string]*Value, len(configIndex))
+	for key, rc := range configIndex {
+		if rc == nil {
+			continue
+		}
+		// 与 GetRemoteConfig 一致，直接共享底层切片；Value 的所有读取方法
+		// （Bytes/String/GetJSONMap 等）都是只读，并且 Bytes 返回时会复制一份。
+		result[key] = &Value{data: rc.DefaultValue}
+	}
+	return result, nil
+}
 
 // GetRemoteConfig gets the remote configuration logic development
 // GetConfig gets the configuration hit by the user, specifies the projectID and configuration key

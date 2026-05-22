@@ -83,6 +83,7 @@ func Test_userContext_GetExperiment(t *testing.T) {
 				Group: &Group{
 					ID:             100002001,
 					Key:            "100002001",
+					ExperimentID:   100002,
 					ExperimentKey:  "100002",
 					LayerKey:       "overrideLayer",
 					IsDefault:      false,
@@ -130,6 +131,7 @@ func Test_userContext_GetExperiment(t *testing.T) {
 				Group: &Group{
 					ID:            200002001,
 					Key:           "200002001",
+					ExperimentID:  200002,
 					ExperimentKey: "200002",
 					LayerKey:      "subDomain-holdoutDomain1-singleLayer",
 					IsControl:     true,
@@ -163,6 +165,7 @@ func Test_userContext_GetExperiment(t *testing.T) {
 				Group: &Group{
 					ID:             100002001,
 					Key:            "100002001",
+					ExperimentID:   100002,
 					ExperimentKey:  "100002",
 					LayerKey:       "overrideLayer",
 					IsDefault:      false,
