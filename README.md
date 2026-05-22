@@ -1,220 +1,318 @@
 # Go SDK
 
+ABetterChoice Go SDK for server-side experiment assignment, feature flag evaluation, remote config lookup,
+and exposure reporting.
+
 ## Supported platforms
 
-The Golang SDK is compatible with the following platforms:
-
 - Linux
-- MacOS
+- macOS
 - Windows
 
-## Getting Started
+## Prerequisites
 
-If you haven't already, please follow the [doc](https://docs.abetterchoice.ai/guide/getting-started/create-project) to create a ABetterChoice project and some experiments. While you can choose to bypass this step for now, please note that you may require the project ID and the names of the experiment layers in subsequent sections.
+- Go 1.17+
+- A project created in ABetterChoice console
+- `ProjectID` and `SecretKey`
+
+Create project and experiment references:
+- [Create Project](https://docs.abetterchoice.ai/guide/getting-started/create-project)
+- [Create Experiment](https://docs.abetterchoice.ai/guide/features/create-experiment)
+- [Feature Flags](https://docs.abetterchoice.ai/guide/features/feature-flags)
 
 ## Installation
 
-In order to use Golang SDK, you need to install the SDK by `go get` CLI, which requires Go 1.17 or higher.
-
-```
+```bash
 go get github.com/abetterchoice/go-sdk
 ```
 
-## SDK Initialization
-
-After installing the SDK, it's necessary to initialize it. The Init function requires three parameters:
-
-1. The first parameter, as per Golang convention, is context.
-2. The second parameter allows for the input of one or more project IDs.
-3. The third parameter is of the type InitOption, offering flexible initialization settings. Currently, only the secret key is required. You can locate this under the API key section within the settings tab.
+## Quick Start (recommended)
 
 ```go
-// Package main ...
 package main
 
 import (
- "context"
- abc "github.com/abetterchoice/go-sdk"
- "log"
+    "context"
+    "log"
+
+    abc "github.com/abetterchoice/go-sdk"
 )
 
-abc.Init(context.TODO(), []string{"{{.ProjectID}}"}, abc.WithSecretKey("{{.SecretKey}}"))
+func main() {
+    ctx := context.Background()
+    projectID := "YOUR_PROJECT_ID"
+    secretKey := "YOUR_SECRET_KEY"
+    unitID := "YOUR_UNIT_ID"
+
+    // Initialize once per process.
+    err := abc.Init(ctx, []string{projectID}, abc.WithSecretKey(secretKey))
+    if err != nil {
+        log.Fatalf("abc.Init failed: %v", err)
+    }
+    defer abc.Release()
+
+    // Build user context for all evaluations.
+    userCtx := abc.NewUserContext(unitID, abc.WithTagKV("region", "sea"))
+
+    // 1) Recommended API: fetch by globally unique variant key.
+    value, err := userCtx.GetValueByVariantKey(ctx, projectID, "drop_rate")
+    if err != nil {
+        log.Printf("GetValueByVariantKey failed: %v", err)
+    } else {
+        dropRate := value.GetFloat64WithDefault(0.05)
+        log.Printf("drop_rate=%v", dropRate)
+    }
+
+    // 2) Layer-based experiment lookup.
+    exp, err := userCtx.GetExperiment(ctx, projectID, "matchmaking_layer")
+    if err != nil {
+        log.Printf("GetExperiment failed: %v", err)
+    } else if exp != nil {
+        mmrWindow := exp.GetInt64WithDefault("mmr_window", 100)
+        log.Printf("mmr_window=%d", mmrWindow)
+    }
+
+    // 3) Feature flag lookup.
+    ff, err := userCtx.GetFeatureFlag(ctx, projectID, "new_shop")
+    if err != nil {
+        log.Printf("GetFeatureFlag failed: %v", err)
+    } else if ff != nil && ff.MustGetBool() {
+        log.Printf("new_shop enabled")
+    }
+}
 ```
 
-*Advanced: This section can be skipped initially and revisited later when needed*
-InitOption provides additional initialization configurations. For more details, please refer to the InitOption implementation. Apart from the secret key used in the preceding code, another commonly used option is to disable exposure logging. By default, the ABC SDK logs exposures (essentially, records of a specific experiment unit being exposed to your experiment) automatically when the `getExperiment` API is called. However, in certain scenarios, this might result in excessive unexpected exposure logs, potentially diluting your results.
-To prevent this, you can fetch the experiment result without logging exposures when calling the `getExperiment` API, and log the exposure later at a more appropriate point. By setting `WithDisableReport(true)`, exposure logging will be globally disabled. We also provide a method to disable exposure logging at the individual API level, which will be explained later in this document.
+## API selection guide
+
+| Scenario | API | Why |
+| --- | --- | --- |
+| Remote parameter lookup by parameter key | `GetValueByVariantKey` | Decouples business code from layer names; supports experiment-first with fallback behavior. |
+| Need full assignment for a known layer | `GetExperiment` | Returns group details and layer-level parameter access. |
+| Need all assigned layers in a project | `GetExperiments` | Batch retrieval for downstream forwarding or diagnostic scenarios. |
+| Need all remote config snapshots (non-experiment path) | `GetAllRemoteConfigs` | Reads all remote-config keys from local cache in one call. |
+| Simple on/off feature control | `GetFeatureFlag` | Boolean-first feature gating with typed getters. |
+
+## Initialization and lifecycle
+
+### `Init(ctx, projectIDList, opts...)`
+
+`Init` performs network fetches and local cache initialization. Call once at process startup.
+
+Key options:
+
+- `WithSecretKey(secretKey)` (required)
+- `WithEnvType(envType)` (optional, default production)
+- `WithDisableReport(true|false)` (optional, global exposure reporting switch)
+- `WithRegionCode(regionCode)` (optional, region-aware config delivery)
+- `WithRegisterCacheClient(...)` / `WithRegisterDMPClient(...)` / `WithRegisterMetricsPlugin(...)` for advanced integration
+
+Example:
 
 ```go
-abc.Init(context.TODO(), []string{"{{.ProjectID}}"}, abc.WithSecretKey("{{.SecretKey}}"), abc.WithDisableReport(true))
+err := abc.Init(
+    context.Background(),
+    []string{"YOUR_PROJECT_ID"},
+    abc.WithSecretKey("YOUR_SECRET_KEY"),
+    abc.WithDisableReport(false),
+)
 ```
 
-*Advanced: Multi-region access*
-ABC is deployed in multiple regions. The SDK targets the global (NA) endpoint by default; if your project is provisioned in the Singapore (SG) region, register the SG endpoint **before** `Init`. Use the SecretKey issued by that region.
+### `Release()`
+
+Call `Release()` on graceful shutdown to reset in-memory state.
+
+## User context and attribution
+
+Build user context with `NewUserContext(unitID, opts...)`.
+
+Common attribution options:
+
+- `WithTags(map[string][]string)`
+- `WithTagKV(key, value)`
+- `WithDecisionID(decisionID)`
+- `WithNewUnitID(newUnitID)` / `WithNewDecisionID(newDecisionID)` for migration scenarios
+- `WithExpandedData(map[string]string)` to enrich exposure logs
+
+Example:
 
 ```go
-import "github.com/abetterchoice/go-sdk/env"
-
-_ = env.RegisterAddr(env.TypePrd, "https://openapi.sg.abetterchoice.ai")
-abc.Init(context.TODO(), []string{"{{.ProjectID}}"},
-    abc.WithEnvType(env.TypePrd),
-    abc.WithSecretKey("{{.SecretKey}}"))
+userCtx := abc.NewUserContext(
+    "player_1001",
+    abc.WithTagKV("channel", "appstore"),
+    abc.WithTagKV("server_id", "s1"),
+)
 ```
 
-## Checking feature flags
+## Evaluation APIs
 
-In this section, we will guide you through the process of retrieving the value of a feature flag. If you haven't already done so, please first follow our [documentation](https://docs.abetterchoice.ai/guide/features/feature-flags) to create one.
-Assuming we have already created a new feature flag named `new_feature_flag` under the project `project_id`, and its value type is Boolean, we can fetch the value in the following manner:
+### Get feature flag
 
 ```go
-abcUserContext, err := abc.NewUserContext("{{.UnitID}}")
-featureFlag, err = abcUserContext.GetFeatureFlag(context.TODO(), "project_id", "new_feature_flag")
-flagValue = featureFlag.MustGetBool()
+userCtx := abc.NewUserContext("{{.UnitID}}")
+featureFlag, err := userCtx.GetFeatureFlag(context.TODO(), "project_id", "new_feature_flag")
+if err == nil && featureFlag != nil {
+    flagValue := featureFlag.MustGetBool()
+    _ = flagValue
+}
 ```
 
-## Getting All Remote Configurations
+### Get experiment by layer key
 
-If you only need a snapshot of every remote configuration value for a project, call `GetAllRemoteConfigs`. It returns the locally cached value of every **non-experiment** remote-config key with its default value.
+```go
+userCtx := abc.NewUserContext("{{.UnitID}}")
+experiment, err := userCtx.GetExperiment(context.TODO(), "project_id", "abc_layer_name")
+if err == nil && experiment != nil {
+    shouldShowBanner := experiment.GetBoolWithDefault("should_show_banner", false)
+    _ = shouldShowBanner
+}
+```
+
+### Get value by variant key
+
+`GetValueByVariantKey` resolves a globally unique parameter key with this order:
+
+1. If the key belongs to one or more experiment layers, traverse layers by each layer's earliest experiment ID (ascending).
+2. Return the first audience-matched non-default group.
+3. If no layer matches a non-default group, fallback to config lookup (`GetRemoteConfig` path).
+
+```go
+userCtx := abc.NewUserContext("{{.UnitID}}")
+result, err := userCtx.GetValueByVariantKey(context.TODO(), "project_id", "should_show_banner")
+if err == nil && result != nil {
+    shouldShowBanner := result.GetBoolWithDefault(false)
+    _ = shouldShowBanner
+
+    // Detail fields help reporting and debugging:
+    // LayerKey / ExperimentKey / ExperimentID / GroupKey / VariantID / ConfigKey
+    _ = result.Detail
+}
+```
+
+### Get all experiments in a project
+
+```go
+userCtx := abc.NewUserContext("{{.UnitID}}")
+experiments, err := userCtx.GetExperiments(context.TODO(), "project_id", abc.WithAutomatic(false))
+if err == nil && experiments != nil {
+    _ = experiments
+}
+```
+
+### Get all remote configs in a project
 
 ```go
 configs, err := abc.GetAllRemoteConfigs("project_id")
 if err == nil {
     for key, value := range configs {
-        log.Infof("%s = %s", key, value.String())
+        _ = key
+        _ = value.String()
     }
 }
 ```
 
-## Getting experiments and logging Exposures
+## Exposure strategy
 
-In this section, we will guide you to create a new experiment and fetch the experiment assignments via our experiment fetching APIs provided by our SDK.
+By default, experiment/config/flag retrieval logs exposure automatically.
 
+Use manual exposure if you prefetch values but only want to report when users actually see the feature.
 
-| Term       | Meaning                                                                                                                                                                                                                  |
-| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| UnitID     | A unit ID can be a user ID, a session ID or a machine ID. The ABC SDK assigns a unit ID to the same group consistantly.                                                                                                  |
-| Layer      | A layer usually represent 100% of the units that you can run experiment in your product, it can be further splited into one or more experiments, the traffic of the experiments under same layer are mutually exclusive. |
-| Experiment | An experiment can take up to 100% of the layer traffic, it will further contain two or more experiment groups.                                                                                                           |
-| Group      | Units within one experiment will be split into two or more groups, e.g. control and treatment, they will be compared against each other.                                                                                 |
-| Parameter  | These are the values binded to a particular layer. Experiments under the same layer can share the same parameters with each other.                                                                                       |
-
-
-### 1. Creating a New Experiment
-
-If you haven't done so already, please navigate to the console and create a new experiment by following our documentation on [how to create an experiment](https://docs.abetterchoice.ai/guide/features/create-experiment).
-
-### 2. Retrieving Experiment Assignments
-
-Assume that in step 1, under the project `project_id`, we have already created an experiment with the layer name `abc_layer_name`. Within this layer, there is a parameter named `should_show_banner` of Boolean type. Please note that in our basic version, the layer name defaults to the experiment name. However, if you create new experiments under the same layer, you will need to find the layer name on the experiment page.
-Currently, we offer three methods to fetch the traffic assignment for a specific unit id. All these APIs require you to establish a user context that encapsulates the unit ID.
+### Disable auto exposure at API level
 
 ```go
-abcUserContext, err := abc.NewUserContext("{{.UnitID}}")
-```
-
-#### a. Retrieve Experiment by Layer Key
-
-The first method involves obtaining the experiment assignment by the layer key and fetching the parameters within the layer using the strong type APIs. This is useful when you have multiple parameters within the layer/experiment. This API will automatically provide the correct result when there are multiple experiments under the same layer, as the unit will and can only fall into one of them. An additional advantage of this method is that it allows you to iterate through the experiments quickly by deallocating the old experiment and creating new ones under the same layer without modifying the code.
-
-```go
-experiment, err := abcUserContext.GetExperiment(context.TODO(), "project_id", "abc_layer_name")
-if err == nil {
-	shouldShowBanner := experiment.GetBoolWithDefault("should_show_banner", false)
+experiments, err := userCtx.GetExperiments(context.TODO(), "project_id", abc.WithAutomatic(false))
+if err == nil && experiments != nil {
+    _ = abc.LogExperimentsExposure(context.TODO(), "project_id", experiments)
 }
 ```
 
-#### b. Retrieve Experiment by Parameter Key
+### Manual exposure APIs
 
-This method is similar to the previous one, with the only difference being that instead of fetching by layer name, we retrieve the result by parameter name, which is unique within the same project. We are planning to introduce features that may allow users to move the parameter from one layer to another (e.g., launcher layer), and this API will be useful in handling such cases.
+- `LogExperimentExposure(ctx, projectID, experimentResult)`
+- `LogExperimentsExposure(ctx, projectID, experimentList)`
+- `LogFeatureFlagExposure(ctx, projectID, featureFlag)`
+- `LogRemoteConfigExposure(ctx, projectID, configResult)`
 
-When the same parameter key is exposed by multiple layers, the SDK ranks those layers by the smallest experiment ID each layer owns (i.e. the creation time of every layer's earliest experiment), then walks them in that order: it returns the first one whose audience matches a non-default group, falling back to the first matched default group. The call no longer errors out in the multi-layer case.
-
-```go
-result, err := abcUserContext.GetValueByVariantKey(context.TODO(), "project_id", "should_show_banner")
-if err == nil {
-    shouldShowBanner := result.GetBoolWithDefault(false)
-    // result.Detail also carries LayerKey / ExperimentKey / ExperimentID / GroupKey / VariantID for reporting.
-}
-```
-
-#### c. Retrieve All Experiment Assignments Under the Project
-
-In some cases, users may need to fetch all experiment assignment results under the same project. To accommodate this, we also provide a batch API, which will return a map linking the experiment layer name to the experiment assignment of the unit specific to that layer. As mentioned earlier, this could lead to dilution problems, so caution is advised when using this API. Depending on your use case, you might consider disabling exposure logging via the opts parameter as shown below. You can use the exposure logging API to manually log the exposure later.
+### Disable exposure globally
 
 ```go
-experiments, err := abcUserContext.GetExperiments(context.TODO(), "project_id", abc.WithAutomatic(false))
-```
-
-### 3. Logging Exposure Data
-
-When retrieving the experiment assignments as described above, you have the option to disable exposure logging to avoid exposure dilution. You can manually log the exposure later at an appropriate time:
-
-```go
-abc.LogExperimentExposure(context.TODO(), "{{.ProjectID}}", experiment)
-```
-
-### 4. Complete code example
-
-Complete code example
-
-```go
-// Package main TODO
-package main
-
-import (
-  "context"
-
-  abc "github.com/abetterchoice/go-sdk"
-  "github.com/abetterchoice/go-sdk/env"
-  "github.com/abetterchoice/go-sdk/plugin/log"
+err := abc.Init(
+    context.Background(),
+    []string{"YOUR_PROJECT_ID"},
+    abc.WithSecretKey("YOUR_SECRET_KEY"),
+    abc.WithDisableReport(true),
 )
-
-func main() {
-  defer abc.Release()
-  projectID := "6666"
-  // Initialize the SDK, and you only need do this once
-  err := abc.Init(context.TODO(), []string{projectID},
-  	abc.WithEnvType(env.TypePrd),
- 	abc.WithSecretKey("{{.SecretKey}}"))
-  if err != nil {
-    log.Errorf("Init fail:%v", err)
-    return
-  }
-
-  // Snapshot of every remote config (no audience / exposure logic).
-  configs, _ := abc.GetAllRemoteConfigs(projectID)
-  for k, v := range configs {
-    log.Infof("remote_config %s = %s", k, v.String())
-  }
-
-  abcUserContext := abc.NewUserContext("unitID_demo")
-
-  // a. Retrieve experiment by layer key; disable auto-exposure to log it manually later.
-  experiment, err := abcUserContext.GetExperiment(context.TODO(), projectID, "abc_layer_name", abc.WithAutomatic(false))
-  if err != nil {
-    log.Errorf("GetExperiment fail:%v", err)
-    return
-  }
-  log.Infof("should_show_banner=%v", experiment.GetBoolWithDefault("should_show_banner", false))
-  _ = abc.LogExperimentExposure(context.TODO(), projectID, experiment)
-
-  // b. Retrieve experiment by parameter key.
-  if result, err := abcUserContext.GetValueByVariantKey(context.TODO(), projectID, "should_show_banner"); err == nil {
-    log.Infof("variant=%v layer=%s expID=%d",
-      result.GetBoolWithDefault(false), result.Detail.LayerKey, result.Detail.ExperimentID)
-  }
-
-  // c. Batch fetch all experiments under the project.
-  if experiments, err := abcUserContext.GetExperiments(context.TODO(), projectID, abc.WithAutomatic(false)); err == nil {
-    for layerKey := range experiments.Data {
-      log.Infof("hit layer=%s", layerKey)
-    }
-  }
-
-  // Feature flag
-  if featureFlag, err := abcUserContext.GetFeatureFlag(context.TODO(), projectID, "new_feature_flag"); err == nil {
-    log.Infof("the feature flag value is %v", featureFlag.MustGetBool())
-  }
-}
 ```
+
+## Advanced options
+
+### Experiment options
+
+Use on `GetExperiment(s)` and `GetValueByVariantKey`:
+
+- `WithLayerKey(layerKey)` / `WithLayerKeyList(layerKeys)`
+- `WithSceneID(sceneID)` / `WithSceneIDList(sceneIDs)`
+- `WithAutomatic(isAutomatic)`
+- `WithIsPreparedDMPTag(isPreparedDMPTag)`
+- `WithIsDisableDMP(isDisableDMP)`
+
+### Config options
+
+Config APIs share the same option type:
+
+- `WithIsPreparedDMPTagConfigOpt(...)`
+- `WithIsDisableDMPConfigOpt(...)`
+
+### Multi-project registration
+
+Register additional projects after init:
+
+```go
+err := abc.RegisterProjectIDs(context.Background(), []string{"PROJECT_B", "PROJECT_C"})
+```
+
+## Troubleshooting
+
+### 1) `Init` failed
+
+- Verify `SecretKey` and `ProjectID`.
+- Verify network access to backend services.
+- If using custom environment, confirm `env.RegisterAddr(...)` is configured correctly.
+
+### 2) Always getting default values
+
+- Check whether `unitID` is empty or unstable.
+- Verify the key exists in console (`layerKey`, `variantKey`, or `featureKey`).
+- Verify targeting conditions match user tags.
+
+### 3) Exposure data missing
+
+- Confirm `WithDisableReport(true)` is not enabled unintentionally.
+- If using manual mode (`WithAutomatic(false)`), ensure manual log API is called.
+- Confirm metrics plugin and sampling configuration are enabled in backend settings.
+
+### 4) Value type conversion failure
+
+- Use typed getters with defaults (`GetBoolWithDefault`, `GetInt64WithDefault`, etc.).
+- Verify value type in console matches code expectation.
+
+## FAQ
+
+### Should I use `GetExperiment` or `GetValueByVariantKey`?
+
+Use `GetExperiment` when your primary goal is to retrieve experiment assignment (recommended in code comments). Use `GetValueByVariantKey` when you want to read a parameter directly by globally unique key.
+
+### Is `GetRemoteConfig` still supported?
+
+`GetRemoteConfig` is kept for compatibility and remains supported. For new access paths, prefer `GetFeatureFlag` or `GetValueByVariantKey` based on your scenario.
+
+### Can I turn off exposure globally in test environments?
+
+Yes, use `WithDisableReport(true)` at `Init`.
+
+## API reference (exported core APIs)
+
+- Initialization: `Init`, `Release`, `RegisterProjectIDs`, `GetGlobalConfig`
+- User context: `NewUserContext`, `WithTags`, `WithTagKV`, `WithDecisionID`, `WithNewUnitID`, `WithNewDecisionID`, `WithExpandedData`
+- Evaluation: `GetExperiment`, `GetExperiments`, `GetFeatureFlag`, `GetValueByVariantKey`, `GetAllRemoteConfigs`, `GetRemoteConfig`
+- Manual exposure: `LogExperimentExposure`, `LogExperimentsExposure`, `LogFeatureFlagExposure`, `LogRemoteConfigExposure`
 
