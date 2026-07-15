@@ -54,7 +54,7 @@ func TypeBySecretKey(secretKey string) (Type, bool) {
 	if len(pairs) != 3 {
 		return "", false
 	}
-	payload, err := base64.RawStdEncoding.DecodeString(pairs[1])
+	payload, err := base64.RawURLEncoding.DecodeString(pairs[1])
 	if err != nil {
 		return "", false
 	}

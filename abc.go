@@ -183,6 +183,7 @@ func WithRegisterDMPClient(dmpClient client.DMPClient) InitOption {
 func WithSecretKey(secretKey string) InitOption {
 	return func(config *internal.GlobalConfig) error {
 		config.SecretKey = secretKey
+		config.TokenDataEnv = ""
 		if tokenEnv, ok := env.TypeBySecretKey(secretKey); ok {
 			config.TokenDataEnv = tokenEnv
 		}

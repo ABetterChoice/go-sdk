@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/abetterchoice/go-sdk/env"
@@ -19,6 +20,8 @@ import (
 	"github.com/abetterchoice/protoc_event_server"
 	"github.com/pkg/errors"
 )
+
+const remoteConfigEnvKeySeparator = "__env_"
 
 // GetAllRemoteConfigs 返回指定项目下所有远程配置的 key 及其取值快照。
 // 仅从本地缓存读取，不执行命中判断（白名单/holdout/condition），也不上报曝光。
@@ -81,7 +84,8 @@ func (c *userContext) GetRemoteConfig(ctx context.Context, projectID string, key
 			return nil, errors.Wrap(err, "opt")
 		}
 	}
-	configValue, err := config.Executor.GetRemoteConfig(ctx, projectID, key, &options)
+	resolvedKey := resolveRemoteConfigKey(key, internal.C.TokenDataEnv)
+	configValue, err := config.Executor.GetRemoteConfig(ctx, projectID, resolvedKey, &options)
 	if err != nil {
 		return nil, err
 	}
@@ -97,6 +101,19 @@ func (c *userContext) GetRemoteConfig(ctx context.Context, projectID string, key
 			unitIDType:     configValue.UnitIDType,
 		},
 	}, nil
+}
+
+func resolveRemoteConfigKey(key, tokenDataEnv string) string {
+	switch tokenDataEnv {
+	case "1", "2", "3":
+		suffix := remoteConfigEnvKeySeparator + tokenDataEnv
+		if strings.HasSuffix(key, suffix) {
+			return key
+		}
+		return key + suffix
+	default:
+		return key
+	}
 }
 
 // ConfigOption Gets the relevant Option of the hit configuration, including the specified scene ID

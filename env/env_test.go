@@ -12,8 +12,9 @@ import (
 )
 
 func buildTokenWithEnv(envValue string) string {
-	header := base64.RawStdEncoding.EncodeToString([]byte(`{"alg":"HS256","typ":"JWT"}`))
-	payload := base64.RawStdEncoding.EncodeToString([]byte(fmt.Sprintf(`{"TAB_DATA_ENV":"%s"}`, envValue)))
+	header := base64.RawURLEncoding.EncodeToString([]byte(`{"alg":"HS256","typ":"JWT"}`))
+	payload := base64.RawURLEncoding.EncodeToString(
+		[]byte(fmt.Sprintf(`{"TAB_DATA_ENV":"%s","marker":"¾"}`, envValue)))
 	return fmt.Sprintf("%s.%s.signature", header, payload)
 }
 

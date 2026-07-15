@@ -11,7 +11,6 @@ import (
 	"github.com/abetterchoice/go-sdk/env"
 	"github.com/abetterchoice/go-sdk/internal"
 	"github.com/abetterchoice/go-sdk/internal/client"
-	"github.com/abetterchoice/go-sdk/internal/experiment"
 	"github.com/abetterchoice/go-sdk/testdata"
 )
 
@@ -21,8 +20,8 @@ var (
 )
 
 func buildTokenWithEnv(envValue string) string {
-	header := base64.RawStdEncoding.EncodeToString([]byte(`{"alg":"HS256","typ":"JWT"}`))
-	payload := base64.RawStdEncoding.EncodeToString([]byte(fmt.Sprintf(`{"TAB_DATA_ENV":"%s"}`, envValue)))
+	header := base64.RawURLEncoding.EncodeToString([]byte(`{"alg":"HS256","typ":"JWT"}`))
+	payload := base64.RawURLEncoding.EncodeToString([]byte(fmt.Sprintf(`{"TAB_DATA_ENV":"%s"}`, envValue)))
 	return fmt.Sprintf("%s.%s.signature", header, payload)
 }
 
@@ -243,45 +242,14 @@ func TestWithSecretKeyTokenDataEnv(t *testing.T) {
 			t.Fatalf("TokenDataEnv = %s, want %s", config.TokenDataEnv, "gray")
 		}
 	})
-}
 
-func TestFillOptionTokenDataEnvTag(t *testing.T) {
-	oldConfig := internal.C
-	defer func() {
-		internal.C = oldConfig
-	}()
-
-	t.Run("inject TAB_DATA_ENV when user tag missing", func(t *testing.T) {
-		internal.C = &internal.GlobalConfig{TokenDataEnv: "test"}
-		userCtx := &userContext{
-			unitID:        "u1",
-			decisionID:    "d1",
-			newUnitID:     "u1",
-			newDecisionID: "d1",
-			tags:          map[string][]string{"region": {"sg"}},
+	t.Run("clear stale token data env when parsing fails", func(t *testing.T) {
+		config := &internal.GlobalConfig{TokenDataEnv: "3"}
+		if err := WithSecretKey("invalid_token")(config); err != nil {
+			t.Fatalf("WithSecretKey() error = %v", err)
 		}
-		options := &experiment.Options{}
-		userCtx.fillOption(options)
-		got, ok := options.AttributeTag["TAB_DATA_ENV"]
-		if !ok || len(got) != 1 || got[0] != "test" {
-			t.Fatalf("TAB_DATA_ENV = %v, want [test]", got)
-		}
-	})
-
-	t.Run("keep user TAB_DATA_ENV tag as highest priority", func(t *testing.T) {
-		internal.C = &internal.GlobalConfig{TokenDataEnv: "test"}
-		userCtx := &userContext{
-			unitID:        "u1",
-			decisionID:    "d1",
-			newUnitID:     "u1",
-			newDecisionID: "d1",
-			tags:          map[string][]string{"TAB_DATA_ENV": {"prod"}},
-		}
-		options := &experiment.Options{}
-		userCtx.fillOption(options)
-		got := options.AttributeTag["TAB_DATA_ENV"]
-		if len(got) != 1 || got[0] != "prod" {
-			t.Fatalf("TAB_DATA_ENV = %v, want [prod]", got)
+		if config.TokenDataEnv != "" {
+			t.Fatalf("TokenDataEnv = %s, want empty", config.TokenDataEnv)
 		}
 	})
 }

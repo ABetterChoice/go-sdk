@@ -15,7 +15,7 @@ type GlobalConfig struct {
 	IsDisableReport bool `json:"isEnableReport"`
 	// Environment type, default is prd
 	EnvType env.Type `json:"envType"`
-	// TAB_DATA_ENV parsed from token payload. It is used as default user attribute tag.
+	// TAB_DATA_ENV parsed from token payload, used to resolve environment-specific remote config keys.
 	TokenDataEnv string `json:"tokenDataEnv"`
 	// Whether to disable dmp, global configuration; each diversion inherits the global configuration by default,
 	// can be set independently, default false
