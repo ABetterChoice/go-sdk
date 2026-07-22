@@ -87,6 +87,10 @@ func (c *userContext) GetRemoteConfig(ctx context.Context, projectID string, key
 	resolvedKey := resolveRemoteConfigKey(key, internal.C.TokenDataEnv)
 	configValue, err := config.Executor.GetRemoteConfig(ctx, projectID, resolvedKey, &options)
 	if err != nil {
+		var notFoundErr *config.RemoteConfigNotFoundError
+		if errors.As(err, &notFoundErr) {
+			return nil, remoteConfigNotFoundError(key, internal.C.TokenDataEnv)
+		}
 		return nil, err
 	}
 	return &ConfigResult{
@@ -114,6 +118,13 @@ func resolveRemoteConfigKey(key, tokenDataEnv string) string {
 	default:
 		return key
 	}
+}
+
+func remoteConfigNotFoundError(key, tokenDataEnv string) error {
+	if tokenDataEnv == "" {
+		return errors.Errorf("remoteConfig[%s] not found", key)
+	}
+	return errors.Errorf("remoteConfig[%s] not found in data environment[%s]", key, tokenDataEnv)
 }
 
 // ConfigOption Gets the relevant Option of the hit configuration, including the specified scene ID

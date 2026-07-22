@@ -170,6 +170,20 @@ func Test_userContext_GetRemoteConfig(t *testing.T) {
 		assert.Equal(t, "remoteConfig1", result.Key)
 		assert.Equal(t, "remoteConfig1-condition1", result.String())
 	})
+
+	t.Run("hide resolved key in not found error", func(t *testing.T) {
+		oldTokenDataEnv := internal.C.TokenDataEnv
+		internal.C.TokenDataEnv = "3"
+		defer func() {
+			internal.C.TokenDataEnv = oldTokenDataEnv
+		}()
+
+		_, err := (&userContext{}).GetRemoteConfig(
+			context.Background(), projectID, "missingConfig", forTestConfigOption())
+		assert.EqualError(t, err,
+			"remoteConfig[missingConfig] not found in data environment[3]")
+		assert.NotContains(t, err.Error(), "missingConfig__env_3")
+	})
 }
 
 func forTestConfigOption() ConfigOption {
@@ -197,6 +211,39 @@ func TestResolveRemoteConfigKey(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			assert.Equal(t, tt.want, resolveRemoteConfigKey(tt.key, tt.tokenDataEnv))
+		})
+	}
+}
+
+func TestRemoteConfigNotFoundError(t *testing.T) {
+	tests := []struct {
+		name         string
+		key          string
+		tokenDataEnv string
+		want         string
+	}{
+		{
+			name: "missing environment",
+			key:  "age",
+			want: "remoteConfig[age] not found",
+		},
+		{
+			name:         "production environment",
+			key:          "age",
+			tokenDataEnv: "0",
+			want:         "remoteConfig[age] not found in data environment[0]",
+		},
+		{
+			name:         "development environment",
+			key:          "age",
+			tokenDataEnv: "3",
+			want:         "remoteConfig[age] not found in data environment[3]",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.EqualError(t, remoteConfigNotFoundError(tt.key, tt.tokenDataEnv), tt.want)
 		})
 	}
 }
