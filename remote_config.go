@@ -124,7 +124,13 @@ func remoteConfigNotFoundError(key, tokenDataEnv string) error {
 	if tokenDataEnv == "" {
 		return errors.Errorf("remoteConfig[%s] not found", key)
 	}
-	return errors.Errorf("remoteConfig[%s] not found in data environment[%s]", key, tokenDataEnv)
+	envMap := map[string]string{
+		"0": "Production",
+		"1": "Pre-Release",
+		"2": "Test",
+		"3": "Development",
+	}
+	return errors.Errorf("remoteConfig[%s] not found in data environment[%s]", key, envMap[tokenDataEnv])
 }
 
 // ConfigOption Gets the relevant Option of the hit configuration, including the specified scene ID
