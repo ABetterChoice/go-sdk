@@ -873,3 +873,77 @@ func Test_validateTabConfig(t *testing.T) {
 		})
 	}
 }
+
+func Test_setupTrafficRoutingBitmapIndex(t *testing.T) {
+	sourceExperimentBytes := make([]byte, 13)
+	sourceExperimentBytes[1] = 1 << 2 // bucket 11
+	sourceGroupBytes := make([]byte, 13)
+	sourceGroupBytes[2] = 1 << 5 // bucket 22
+	routing := &protoctabcacheserver.ExpGroupTrafficRoutingConfig{
+		RoutingMode:             protoctabcacheserver.ExpGroupTrafficRoutingMode_EXP_GROUP_TRAFFIC_ROUTING_MODE_SNAPSHOT_INHERITANCE,
+		SourceExperimentBuckets: sourceExperimentBytes,
+		SourceGroupBuckets:      sourceGroupBytes,
+	}
+	layer := &protoctabcacheserver.Layer{
+		Metadata:       &protoctabcacheserver.LayerMetadata{Key: "routing-layer"},
+		TrafficRouting: []*protoctabcacheserver.ExpGroupTrafficRoutingConfig{routing},
+	}
+	application := &Application{
+		TabConfig: &protoctabcacheserver.TabConfig{
+			ExperimentData: &protoctabcacheserver.ExperimentData{},
+		},
+		LayerIndex: map[string]*protoctabcacheserver.Layer{"routing-layer": layer},
+	}
+
+	if err := setupTrafficRoutingBitmapIndex(application); err != nil {
+		t.Fatalf("setupTrafficRoutingBitmapIndex() error = %v", err)
+	}
+	bitmaps := application.TrafficRoutingBitmapIndex[routing]
+	if bitmaps == nil || bitmaps.SourceExperimentBuckets[1] != 1<<2 || bitmaps.SourceGroupBuckets[2] != 1<<5 {
+		t.Fatalf("unexpected traffic routing bitmaps: %+v", bitmaps)
+	}
+}
+
+// Test_setupTrafficRoutingBitmapIndexSkipInvalidRouting 验证：空桶的非法 routing 被跳过，
+// 不影响同一项目内其他正常 routing 的构建，且整体不返回 error。
+func Test_setupTrafficRoutingBitmapIndexSkipInvalidRouting(t *testing.T) {
+	validRouting := &protoctabcacheserver.ExpGroupTrafficRoutingConfig{
+		RoutingMode:             protoctabcacheserver.ExpGroupTrafficRoutingMode_EXP_GROUP_TRAFFIC_ROUTING_MODE_SNAPSHOT_INHERITANCE,
+		SourceExperimentBuckets: make([]byte, 13),
+		SourceGroupBuckets:      make([]byte, 13),
+	}
+	invalidRouting := &protoctabcacheserver.ExpGroupTrafficRoutingConfig{
+		RoutingMode:             protoctabcacheserver.ExpGroupTrafficRoutingMode_EXP_GROUP_TRAFFIC_ROUTING_MODE_SNAPSHOT_INHERITANCE,
+		SourceExperimentBuckets: nil, // 空桶：非法配置
+		SourceGroupBuckets:      nil,
+	}
+	validLayer := &protoctabcacheserver.Layer{
+		Metadata:       &protoctabcacheserver.LayerMetadata{Key: "valid-layer"},
+		TrafficRouting: []*protoctabcacheserver.ExpGroupTrafficRoutingConfig{validRouting},
+	}
+	invalidLayer := &protoctabcacheserver.Layer{
+		Metadata:       &protoctabcacheserver.LayerMetadata{Key: "invalid-layer"},
+		TrafficRouting: []*protoctabcacheserver.ExpGroupTrafficRoutingConfig{invalidRouting},
+	}
+	application := &Application{
+		TabConfig: &protoctabcacheserver.TabConfig{
+			ExperimentData: &protoctabcacheserver.ExperimentData{},
+		},
+		LayerIndex: map[string]*protoctabcacheserver.Layer{
+			"valid-layer":   validLayer,
+			"invalid-layer": invalidLayer,
+		},
+	}
+
+	if err := setupTrafficRoutingBitmapIndex(application); err != nil {
+		t.Fatalf("空桶的非法 routing 不应阻断整个项目构建，got error = %v", err)
+	}
+	// 合法 routing 正常构建
+	if _, ok := application.TrafficRoutingBitmapIndex[validRouting]; !ok {
+		t.Fatalf("合法 routing 应被正常构建")
+	}
+	// 非法 routing 被跳过，不进入 index
+	if _, ok := application.TrafficRoutingBitmapIndex[invalidRouting]; ok {
+		t.Fatalf("空桶的非法 routing 应被跳过，不应进入 index")
+	}
+}

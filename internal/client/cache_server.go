@@ -242,14 +242,30 @@ func (c *tabCacheClient) GetTabConfigData(ctx context.Context, req *protoctabcac
 		return nil, errors.Wrap(err, "ioutil readAll")
 	}
 	if resp.StatusCode != http.StatusOK {
-		return nil, errors.Errorf("invalid http status:%s, body=%s", resp.Status, respBody)
+		return nil, errors.Errorf("invalid http status:%s, url=%s, contentType=%s, body=%s", resp.Status, httpReq.URL.String(), resp.Header.Get("Content-Type"), previewBody(respBody))
 	}
 	result := &protoctabcacheserver.GetTabConfigResp{}
 	err = proto.Unmarshal(respBody, result)
 	if err != nil {
-		return nil, errors.Wrap(err, "proto unmarshal")
+		return nil, errors.Wrapf(err, "proto unmarshal: url=%s, contentType=%s, bodyPrefix=%s", httpReq.URL.String(), resp.Header.Get("Content-Type"), previewBody(respBody))
 	}
 	return result, nil
+}
+
+func previewBody(body []byte) string {
+	const maxLen = 256
+	body = bytes.TrimSpace(body)
+	if len(body) > maxLen {
+		body = body[:maxLen]
+	}
+	if len(body) == 0 {
+		return "<empty>"
+	}
+	contentType := http.DetectContentType(body)
+	if strings.HasPrefix(contentType, "text/") || strings.Contains(contentType, "json") {
+		return strconv.QuoteToASCII(string(body))
+	}
+	return fmt.Sprintf("%x", body)
 }
 
 // Request a fixed header for the tab background

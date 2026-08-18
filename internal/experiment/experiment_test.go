@@ -970,6 +970,160 @@ func Test_executor_GetExperiments1(t *testing.T) {
 	}
 }
 
+func Test_executor_GetLayerExperimentTrafficRouting(t *testing.T) {
+	targetGroup := &protoccacheserver.Group{
+		Id:            2001,
+		ExperimentId:  200,
+		ExperimentKey: "target",
+		LayerKey:      "routing-layer",
+		IssueInfo: &protoccacheserver.IssueInfo{
+			IssueType: protoccacheserver.IssueType_ISSUE_TYPE_PERCENTAGE,
+		},
+	}
+	targetExperiment := &protoccacheserver.Experiment{
+		Id:           200,
+		Key:          "target",
+		HashSeed:     31,
+		BucketSize:   100,
+		IssueType:    protoccacheserver.IssueType_ISSUE_TYPE_PERCENTAGE,
+		GroupIdIndex: map[int64]bool{targetGroup.Id: true},
+	}
+	routing := &protoccacheserver.ExpGroupTrafficRoutingConfig{
+		RoutingMode:      protoccacheserver.ExpGroupTrafficRoutingMode_EXP_GROUP_TRAFFIC_ROUTING_MODE_SNAPSHOT_INHERITANCE,
+		TargetExpGroupId: targetExperiment.Id,
+		SourceHashInfo: &protoccacheserver.HashInfo{
+			HashSeed:  17,
+			HashWidth: 100,
+		},
+		Routes: []*protoccacheserver.ExpVersionTrafficRoute{
+			{TargetExperimentIds: []int64{targetGroup.Id}},
+		},
+	}
+	layer := &protoccacheserver.Layer{
+		Metadata: &protoccacheserver.LayerMetadata{
+			Key:        "routing-layer",
+			HashType:   protoccacheserver.HashType_HASH_TYPE_SINGLE,
+			HashSeed:   13,
+			BucketSize: 100,
+			UnitIdType: protoccacheserver.UnitIDType_UNIT_ID_TYPE_DEFAULT,
+		},
+		GroupIndex:      map[int64]*protoccacheserver.Group{targetGroup.Id: targetGroup},
+		ExperimentIndex: map[int64]*protoccacheserver.Experiment{targetExperiment.Id: targetExperiment},
+		TrafficRouting:  []*protoccacheserver.ExpGroupTrafficRoutingConfig{routing},
+	}
+	sourceExperimentBuckets := make([]byte, 13)
+	sourceGroupBuckets := make([]byte, 13)
+	for i := range sourceExperimentBuckets {
+		sourceExperimentBuckets[i] = 0xff
+		sourceGroupBuckets[i] = 0xff
+	}
+	application := &cache.Application{
+		TabConfig: &protoccacheserver.TabConfig{
+			ExperimentData: &protoccacheserver.ExperimentData{},
+		},
+		GroupIDBucketInfoIndex: map[int64]*protoccacheserver.BucketInfo{
+			targetGroup.Id: {
+				BucketType:   protoccacheserver.BucketType_BUCKET_TYPE_RANGE,
+				TrafficRange: &protoccacheserver.TrafficRange{Left: 1, Right: 100},
+			},
+		},
+		TrafficRoutingBitmapIndex: map[*protoccacheserver.ExpGroupTrafficRoutingConfig]*cache.TrafficRoutingBitmap{
+			routing: {
+				SourceExperimentBuckets: sourceExperimentBuckets,
+				SourceGroupBuckets:      sourceGroupBuckets,
+			},
+		},
+	}
+
+	got, err := (&executor{}).GetLayerExperiment(context.Background(), layer, &Options{
+		DecisionID:  "traffic-routing-user",
+		Application: application,
+	})
+	assert.NoError(t, err)
+	if assert.NotNil(t, got) {
+		assert.Equal(t, targetGroup.Id, got.Id)
+	}
+}
+
+// Test_executor_GetLayerExperimentTrafficRoutingBitmapMissing 验证 bitmap 缺失时
+// 降级到普通 layer hash 分流，而不是报错导致整层决策失败。
+func Test_executor_GetLayerExperimentTrafficRoutingBitmapMissing(t *testing.T) {
+	normalGroup := &protoccacheserver.Group{
+		Id:            3001,
+		ExperimentId:  300,
+		ExperimentKey: "normal",
+		LayerKey:      "mixed-layer",
+		IssueInfo: &protoccacheserver.IssueInfo{
+			IssueType: protoccacheserver.IssueType_ISSUE_TYPE_PERCENTAGE,
+		},
+	}
+	targetGroup := &protoccacheserver.Group{
+		Id:            2001,
+		ExperimentId:  200,
+		ExperimentKey: "target",
+		LayerKey:      "mixed-layer",
+		IssueInfo: &protoccacheserver.IssueInfo{
+			IssueType: protoccacheserver.IssueType_ISSUE_TYPE_PERCENTAGE,
+		},
+	}
+	targetExperiment := &protoccacheserver.Experiment{
+		Id:           200,
+		Key:          "target",
+		HashSeed:     31,
+		BucketSize:   100,
+		IssueType:    protoccacheserver.IssueType_ISSUE_TYPE_PERCENTAGE,
+		GroupIdIndex: map[int64]bool{targetGroup.Id: true},
+	}
+	routing := &protoccacheserver.ExpGroupTrafficRoutingConfig{
+		RoutingMode:      protoccacheserver.ExpGroupTrafficRoutingMode_EXP_GROUP_TRAFFIC_ROUTING_MODE_SNAPSHOT_INHERITANCE,
+		TargetExpGroupId: targetExperiment.Id,
+		SourceHashInfo: &protoccacheserver.HashInfo{
+			HashSeed:  17,
+			HashWidth: 100,
+		},
+		Routes: []*protoccacheserver.ExpVersionTrafficRoute{
+			{TargetExperimentIds: []int64{targetGroup.Id}},
+		},
+	}
+	layer := &protoccacheserver.Layer{
+		Metadata: &protoccacheserver.LayerMetadata{
+			Key:        "mixed-layer",
+			HashType:   protoccacheserver.HashType_HASH_TYPE_SINGLE,
+			HashSeed:   13,
+			BucketSize: 100,
+			UnitIdType: protoccacheserver.UnitIDType_UNIT_ID_TYPE_DEFAULT,
+		},
+		GroupIndex: map[int64]*protoccacheserver.Group{
+			normalGroup.Id: normalGroup,
+			targetGroup.Id: targetGroup,
+		},
+		ExperimentIndex: map[int64]*protoccacheserver.Experiment{targetExperiment.Id: targetExperiment},
+		TrafficRouting:  []*protoccacheserver.ExpGroupTrafficRoutingConfig{routing},
+	}
+	// TrafficRoutingBitmapIndex 为空：routing 的 bitmap 缺失，触发降级到普通 layer hash
+	application := &cache.Application{
+		TabConfig: &protoccacheserver.TabConfig{
+			ExperimentData: &protoccacheserver.ExperimentData{},
+		},
+		GroupIDBucketInfoIndex: map[int64]*protoccacheserver.BucketInfo{
+			normalGroup.Id: {
+				BucketType:   protoccacheserver.BucketType_BUCKET_TYPE_RANGE,
+				TrafficRange: &protoccacheserver.TrafficRange{Left: 1, Right: 100},
+			},
+		},
+		TrafficRoutingBitmapIndex: map[*protoccacheserver.ExpGroupTrafficRoutingConfig]*cache.TrafficRoutingBitmap{},
+	}
+
+	got, err := (&executor{}).GetLayerExperiment(context.Background(), layer, &Options{
+		DecisionID:  "traffic-routing-user",
+		Application: application,
+	})
+	assert.NoError(t, err, "bitmap 缺失时应降级到普通 layer hash，不返回错误")
+	if assert.NotNil(t, got, "应降级命中普通组") {
+		assert.Equal(t, normalGroup.Id, got.Id)
+	}
+}
+
 func BenchmarkDMPResultKeyFormat(b *testing.B) {
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {

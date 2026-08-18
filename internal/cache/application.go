@@ -21,6 +21,12 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+// TrafficRoutingBitmap contains raw source bucket snapshots for one routing config.
+type TrafficRoutingBitmap struct {
+	SourceExperimentBuckets []byte
+	SourceGroupBuckets      []byte
+}
+
 // Application Locally cached entities
 type Application struct {
 	// Project Code
@@ -36,6 +42,8 @@ type Application struct {
 	GroupIDBucketInfoIndex map[int64]*protoctabcacheserver.BucketInfo
 	// roaring bitmap index, bucketInfo type is bitmap, roaring bitmap object will be pre-built
 	GroupIDRoaringBitmapIndex map[int64]*roaring.Bitmap
+	// Traffic routing bitmap snapshots, keyed by the routing config in the current application snapshot
+	TrafficRoutingBitmapIndex map[*protoctabcacheserver.ExpGroupTrafficRoutingConfig]*TrafficRoutingBitmap
 	// The layer that accounts for 100% of the overall traffic, key is layerKey, value = specific layer information
 	FullFlowLayerIndex map[string]*protoctabcacheserver.Layer
 	// Experiment layer index, key is layerKey, value is layer
@@ -223,6 +231,10 @@ func refreshApplication(ctx context.Context, projectID string) (*Application, bo
 	if err != nil {
 		return nil, false, errors.Wrap(err, "setupLayerIndex")
 	}
+	err = setupTrafficRoutingBitmapIndex(application)
+	if err != nil {
+		return nil, false, errors.Wrap(err, "setupTrafficRoutingBitmapIndex")
+	}
 	err = setupFullFlowLayerIndex(application)
 	if err != nil {
 		return nil, false, errors.Wrap(err, "setupFullFlowLayerIndex")
@@ -351,6 +363,48 @@ func setupLayerIndex(application *Application) error {
 		return err
 	}
 	application.LayerIndex = layerIndex
+	return nil
+}
+
+func setupTrafficRoutingBitmapIndex(application *Application) error {
+	result := make(map[*protoctabcacheserver.ExpGroupTrafficRoutingConfig]*TrafficRoutingBitmap)
+	seenLayers := make(map[*protoctabcacheserver.Layer]bool)
+	setupLayer := func(layer *protoctabcacheserver.Layer) {
+		if layer == nil || seenLayers[layer] {
+			return
+		}
+		seenLayers[layer] = true
+		if layer.Metadata == nil {
+			// 单个 layer 元数据缺失属数据异常，跳过该 layer，避免影响其他正常实验
+			log.Warnf("traffic routing layer metadata is nil, skip this layer")
+			return
+		}
+		for _, routing := range layer.TrafficRouting {
+			if routing == nil || routing.RoutingMode !=
+				protoctabcacheserver.ExpGroupTrafficRoutingMode_EXP_GROUP_TRAFFIC_ROUTING_MODE_SNAPSHOT_INHERITANCE {
+				continue
+			}
+			if len(routing.SourceExperimentBuckets) == 0 || len(routing.SourceGroupBuckets) == 0 {
+				// 快照桶位图为空属非法配置（由后端下发时检查），
+				// 此处跳过该 routing，运行时将降级走普通 layer hash，不阻断整个项目配置刷新
+				log.Warnf("[layerKey=%s] traffic routing snapshot buckets are empty, skip this routing", layer.Metadata.Key)
+				continue
+			}
+			result[routing] = &TrafficRoutingBitmap{
+				SourceExperimentBuckets: append([]byte(nil), routing.SourceExperimentBuckets...),
+				SourceGroupBuckets:      append([]byte(nil), routing.SourceGroupBuckets...),
+			}
+		}
+	}
+	for _, layer := range application.LayerIndex {
+		setupLayer(layer)
+	}
+	if application.TabConfig.ExperimentData.HoldoutData != nil {
+		for _, layer := range application.TabConfig.ExperimentData.HoldoutData.HoldoutLayerIndex {
+			setupLayer(layer)
+		}
+	}
+	application.TrafficRoutingBitmapIndex = result
 	return nil
 }
 
@@ -751,6 +805,7 @@ func getLocalCacheWithDefault(projectID string) *Application {
 			ExperimentIDRoaringBitmapIndex: map[int64]*roaring.Bitmap{},
 			GroupIDBucketInfoIndex:         map[int64]*protoctabcacheserver.BucketInfo{},
 			GroupIDRoaringBitmapIndex:      map[int64]*roaring.Bitmap{},
+			TrafficRoutingBitmapIndex:      map[*protoctabcacheserver.ExpGroupTrafficRoutingConfig]*TrafficRoutingBitmap{},
 			FullFlowLayerIndex:             map[string]*protoctabcacheserver.Layer{},
 			LayerIndex:                     map[string]*protoctabcacheserver.Layer{},
 			VariantKeyLayerMap:             map[string][]string{},
@@ -775,6 +830,7 @@ func getNewApplication(curApplication *Application) *Application {
 		ExperimentIDRoaringBitmapIndex: getNewRoaringBitmapIndex(curApplication.ExperimentIDRoaringBitmapIndex),
 		GroupIDBucketInfoIndex:         getNewBucketInfoIndex(curApplication.GroupIDBucketInfoIndex),
 		GroupIDRoaringBitmapIndex:      getNewRoaringBitmapIndex(curApplication.GroupIDRoaringBitmapIndex),
+		TrafficRoutingBitmapIndex:      getNewTrafficRoutingBitmapIndex(curApplication.TrafficRoutingBitmapIndex),
 		FullFlowLayerIndex:             curApplication.FullFlowLayerIndex,
 		LayerIndex:                     curApplication.LayerIndex,
 		DMPTagInfo:                     curApplication.DMPTagInfo,
@@ -796,6 +852,16 @@ func getNewBucketInfoIndex(
 
 func getNewRoaringBitmapIndex(curIndex map[int64]*roaring.Bitmap) map[int64]*roaring.Bitmap {
 	var result = make(map[int64]*roaring.Bitmap, len(curIndex))
+	for k, v := range curIndex {
+		result[k] = v
+	}
+	return result
+}
+
+func getNewTrafficRoutingBitmapIndex(
+	curIndex map[*protoctabcacheserver.ExpGroupTrafficRoutingConfig]*TrafficRoutingBitmap,
+) map[*protoctabcacheserver.ExpGroupTrafficRoutingConfig]*TrafficRoutingBitmap {
+	result := make(map[*protoctabcacheserver.ExpGroupTrafficRoutingConfig]*TrafficRoutingBitmap, len(curIndex))
 	for k, v := range curIndex {
 		result[k] = v
 	}
