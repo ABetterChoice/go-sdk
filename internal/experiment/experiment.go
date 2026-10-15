@@ -446,6 +446,15 @@ func (e *executor) defaultSystemGlobalGroupID(options *Options) int64 {
 // GetLayerExperiment Get the set of experiment information that the user hits under the conditions specified by options
 func (e *executor) GetLayerExperiment(ctx context.Context, layer *protoccacheserver.Layer,
 	options *Options) (*Experiment, error) {
+	return e.getLayerExperimentInternal(ctx, layer, options, nil)
+}
+
+// getLayerExperimentInternal decides a single layer.
+// parentCtx is the recursion state of the parent-hit evaluation: nil means this call is the
+// decision entry point, non-nil means this layer is being evaluated as a parent and the stack
+// is carried along for cycle detection (see liveParentCtx).
+func (e *executor) getLayerExperimentInternal(ctx context.Context, layer *protoccacheserver.Layer,
+	options *Options, parentCtx *liveParentCtx) (*Experiment, error) {
 	overrideGroup := e.getLayerOverrideExperiment(layer, options)
 	if overrideGroup != nil {
 		return overrideGroup, nil
@@ -454,6 +463,8 @@ func (e *executor) GetLayerExperiment(ctx context.Context, layer *protoccacheser
 	if err != nil {
 		return nil, errors.Wrap(err, "checkCaughtByHoldout")
 	}
+	// Holdout outranks parent-child: a user held out must stay on the control version and must
+	// not be routed into a child experiment.
 	if holdoutExp != nil && !holdoutExp.IsDefault && holdoutExp.IsControl {
 		return holdoutExp, nil
 	}
@@ -464,6 +475,20 @@ func (e *executor) GetLayerExperiment(ctx context.Context, layer *protoccacheser
 		}
 		if matched {
 			return experiment, nil
+		}
+		experiment, governed, err := e.getLiveParentExperiment(ctx, layer, options, parentCtx)
+		if err != nil {
+			return nil, errors.Wrap(err, "getLiveParentExperiment")
+		}
+		if experiment != nil {
+			return experiment, nil
+		}
+		if governed {
+			// This layer only carries child experiments gated by LIVE_PARENT routing, so missing
+			// the parent means not entering the child. Returning nil lets the caller fall back to
+			// the layer default; running the ordinary hash instead would assign the user into a
+			// child group and defeat the routing.
+			return nil, nil
 		}
 	}
 	switch layer.Metadata.HashType {
