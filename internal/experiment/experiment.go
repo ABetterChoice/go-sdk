@@ -32,58 +32,6 @@ type Experiment struct {
 	HoldoutData              map[string]*Experiment
 }
 
-// PreferVariantExperiment picks the experiment group for a parameter key.
-// Layers are already ordered by earliest experiment ID. A whitelist hit
-// (IsOverrideList) on any of those layers wins over an earlier audience hit.
-// Among whitelist hits, the earliest layer still wins. Audience hits keep that
-// same order and are used only when no whitelist group carries the key.
-func PreferVariantExperiment(layerKeys []string, got map[string]*Experiment, key string) *Experiment {
-	var audience *Experiment
-	for _, layerKey := range layerKeys {
-		exp, ok := got[layerKey]
-		if !ok || exp == nil || exp.Group == nil || exp.IsDefault {
-			continue
-		}
-		if _, hasKey := exp.Params[key]; !hasKey {
-			continue
-		}
-		if exp.IsOverrideList {
-			return exp
-		}
-		if audience == nil {
-			audience = exp
-		}
-	}
-	return audience
-}
-
-// SelectVariantExperiment resolves the experiment group for a parameter key.
-// Whitelist groups are preferred over audience-matched groups.
-func (e *executor) SelectVariantExperiment(ctx context.Context, projectID, key string, options *Options) (
-	*Experiment, error) {
-	layerKeys, err := e.VariantKey2LayerKey(projectID, key)
-	if err != nil || len(layerKeys) == 0 {
-		return nil, err
-	}
-	savedLayerKeys := options.LayerKeys
-	layerSet := make(map[string]bool, len(layerKeys))
-	for _, layerKey := range layerKeys {
-		layerSet[layerKey] = true
-	}
-	if savedLayerKeys != nil {
-		for layerKey := range savedLayerKeys {
-			layerSet[layerKey] = true
-		}
-	}
-	options.LayerKeys = layerSet
-	got, err := e.GetExperiments(ctx, projectID, options)
-	options.LayerKeys = savedLayerKeys
-	if err != nil {
-		return nil, err
-	}
-	return PreferVariantExperiment(layerKeys, got, key), nil
-}
-
 // VariantKey2LayerKey Get the layer where the parameter key is located according to the parameter key
 func (e *executor) VariantKey2LayerKey(projectID, variantKey string) ([]string, error) {
 	application := cache.GetApplication(projectID)

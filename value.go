@@ -6,18 +6,33 @@ import (
 	"encoding/json"
 	"strconv"
 
-	"github.com/abetterchoice/go-sdk/internal"
-	"github.com/abetterchoice/go-sdk/internal/cache"
-	"github.com/abetterchoice/go-sdk/internal/config"
 	"github.com/abetterchoice/go-sdk/internal/experiment"
 	"github.com/pkg/errors"
 )
 
 // GetValueByVariantKey retrieves the parameter value using the globally unique parameter key.
 //
-// Experiments that carry this key, including config experiments, are resolved first.
-// Whitelist wins over audience. If neither hits, GetRemoteConfig resolves config whitelist,
-// then config conditions and the default, without entering an experiment.
+// Resolution order:
+//  1. If key is bound to one or more experiment layers, walk those layers in
+//     ascending order of each layer's earliest experiment ID. A whitelist group
+//     that carries this key wins over an earlier audience hit. Otherwise use the
+//     first layer where the user is hit by a real experiment group (IsDefault=false)
+//     AND that group has configured this key.
+//  2. Otherwise (key is not on any layer, or no layer satisfies the condition
+//     above), fall back to the remote config resolution flow
+//     (override list / holdout / condition list / static default value).
+//
+// Parameters:
+//
+//	ctx: The context for the operation.
+//	projectID: The ID of the project where the search is performed.
+//	key: The globally unique key that identifies the parameter.
+//	opts: Additional experiment options.
+//
+// Returns:
+//
+//	A pointer to the ValueResult object containing the resolved value, and an
+//	error if any occurred during the lookup.
 func (c *userContext) GetValueByVariantKey(ctx context.Context, projectID string, key string,
 	opts ...ExperimentOption) (*ValueResult, error) {
 	options := defaultExperimentOptions // 拷贝，defaultExperimentOptions 作为模板保持不变
@@ -41,20 +56,53 @@ func (c *userContext) GetValueByVariantKey(ctx context.Context, projectID string
 			LayerKeys: layerKeys,
 		},
 	}
-	exp, err := experiment.Executor.SelectVariantExperiment(ctx, projectID, key, &options)
-	if err != nil {
-		return nil, errors.Wrap(err, "selectVariantExperiment")
-	}
-	if exp != nil {
-		return applyExperimentValue(vr, key, exp), nil
-	}
-	resolvedKey := resolveRemoteConfigKey(key, internal.C.TokenDataEnv)
-	if remoteConfigExists(projectID, resolvedKey) {
-		configValue, err := config.Executor.GetRemoteConfig(ctx, projectID, resolvedKey, &options)
+	if len(layerKeys) != 0 {
+		// layerKeys 已按层上"最早实验 ID"升序排序（近似为最早实验的创建顺序）。
+		// 白名单组优先于更早的受众命中；都没有时 fallback 到参数本身的远程配置流程
+		// （白名单 / holdout / condition / 参数静态默认值）。
+		experimentOpts := make([]ExperimentOption, 0, len(opts)+1)
+		experimentOpts = append(experimentOpts, opts...)
+		experimentOpts = append(experimentOpts, WithLayerKeyList(layerKeys))
+		experimentResult, err := c.GetExperiments(ctx, projectID, experimentOpts...)
 		if err != nil {
-			return nil, errors.Wrap(err, "GetRemoteConfig")
+			return nil, errors.Wrap(err, "GetExperiment")
 		}
-		return applyConfigValue(vr, key, configValue), nil
+		var audienceLayer string
+		var audienceGroup *Group
+		var audienceData []byte
+		for _, layerKey := range layerKeys {
+			group, ok := experimentResult.Data[layerKey]
+			if !ok || group == nil || group.IsDefault {
+				continue
+			}
+			data, ok := group.GetBytes(key)
+			if !ok {
+				continue
+			}
+			if group.IsOverrideList {
+				vr.data = data
+				vr.Detail.GroupKey = group.Key
+				vr.Detail.VariantID = group.ID
+				vr.Detail.ExperimentID = group.ExperimentID
+				vr.Detail.ExperimentKey = group.ExperimentKey
+				vr.Detail.LayerKey = layerKey
+				return vr, nil
+			}
+			if audienceGroup == nil {
+				audienceLayer = layerKey
+				audienceGroup = group
+				audienceData = data
+			}
+		}
+		if audienceGroup != nil {
+			vr.data = audienceData
+			vr.Detail.GroupKey = audienceGroup.Key
+			vr.Detail.VariantID = audienceGroup.ID
+			vr.Detail.ExperimentID = audienceGroup.ExperimentID
+			vr.Detail.ExperimentKey = audienceGroup.ExperimentKey
+			vr.Detail.LayerKey = audienceLayer
+			return vr, nil
+		}
 	}
 	configResult, err := c.GetRemoteConfig(ctx, projectID, key, opts...)
 	if err != nil {
@@ -63,38 +111,6 @@ func (c *userContext) GetValueByVariantKey(ctx context.Context, projectID string
 	vr.Value = configResult.Value
 	vr.Detail.ConfigKey = key
 	return vr, nil
-}
-
-func remoteConfigExists(projectID, key string) bool {
-	application := cache.GetApplication(projectID)
-	if application == nil || application.TabConfig == nil || application.TabConfig.ConfigData == nil {
-		return false
-	}
-	remoteConfig, ok := application.TabConfig.ConfigData.RemoteConfigIndex[key]
-	return ok && remoteConfig != nil
-}
-
-func applyConfigValue(vr *ValueResult, key string, configValue *config.Value) *ValueResult {
-	vr.data = configValue.Data
-	if configValue.Experiment == nil {
-		vr.Detail.ConfigKey = key
-		return vr
-	}
-	return applyExperimentValue(vr, key, configValue.Experiment)
-}
-
-func applyExperimentValue(vr *ValueResult, key string, exp *experiment.Experiment) *ValueResult {
-	if param, ok := exp.Params[key]; ok {
-		vr.data = []byte(param)
-	} else if len(vr.data) == 0 {
-		vr.data = []byte(exp.Params[key])
-	}
-	vr.Detail.GroupKey = exp.GroupKey
-	vr.Detail.VariantID = exp.Id
-	vr.Detail.ExperimentID = exp.ExperimentId
-	vr.Detail.ExperimentKey = exp.ExperimentKey
-	vr.Detail.LayerKey = exp.LayerKey
-	return vr
 }
 
 // ValueResult TODO
