@@ -145,8 +145,7 @@ func (e *executor) processCondition(ctx context.Context, condition *protoc_cache
 	}
 	switch condition.IssueInfo.IssueType {
 	case protoc_cache_server.IssueType_ISSUE_TYPE_PERCENTAGE:
-		value, err := processConditionExperiment(ctx, condition, options)
-		return value, true, err
+		return &Value{Data: condition.Value}, true, nil
 	case protoc_cache_server.IssueType_ISSUE_TYPE_TAG, protoc_cache_server.IssueType_ISSUE_TYPE_CITY_TAG:
 		hit, err := experiment.IsHitTag(ctx, condition.IssueInfo.TagListGroup, options)
 		if err != nil {
@@ -155,15 +154,9 @@ func (e *executor) processCondition(ctx context.Context, condition *protoc_cache
 		if !hit {
 			return nil, false, nil
 		}
-		value, err := processConditionExperiment(ctx, condition, options)
-		return value, true, err
+		return &Value{Data: condition.Value}, true, nil
 	}
 	return nil, false, nil
-}
-
-func processConditionExperiment(_ context.Context, condition *protoc_cache_server.Condition,
-	_ *experiment.Options) (*Value, error) {
-	return &Value{Data: condition.Value}, nil
 }
 
 func (e *executor) isHitConditionBucketInfo(bucketNum int64, bucketInfo *protoc_cache_server.BucketInfo) bool {

@@ -350,31 +350,3 @@ func Test_executor_processOverrideList(t *testing.T) {
 		})
 	}
 }
-
-func Test_processConditionExperiment(t *testing.T) {
-	type args struct {
-		ctx       context.Context
-		condition *protoc_cache_server.Condition
-		options   *experiment.Options
-	}
-	tests := []struct {
-		name    string
-		args    args
-		want    *Value
-		wantErr bool
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := processConditionExperiment(tt.args.ctx, tt.args.condition, tt.args.options)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("processConditionExperiment() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("processConditionExperiment() got = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
