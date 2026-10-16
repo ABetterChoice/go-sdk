@@ -161,34 +161,9 @@ func (e *executor) processCondition(ctx context.Context, condition *protoc_cache
 	return nil, false, nil
 }
 
-func processConditionExperiment(ctx context.Context, condition *protoc_cache_server.Condition,
-	options *experiment.Options) (*Value, error) {
-	value := &Value{}
-	value.Data = condition.Value
-	if condition.ExperimentKey == "" {
-		return value, nil
-	}
-	if options.ExperimentKeys == nil {
-		options.ExperimentKeys = make(map[string]bool, 1)
-	}
-	options.ExperimentKeys[condition.ExperimentKey] = true
-	experimentList, err := experiment.Executor.GetExperiments(ctx, options.Application.ProjectID, options)
-	if err != nil {
-		return nil, errors.Wrapf(err, "getExperiments with experimentKey[%s]", condition.ExperimentKey)
-	}
-	for _, e := range experimentList {
-		if e.Group.ExperimentKey != condition.ExperimentKey {
-			continue
-		}
-		result, ok := e.Group.Params[condition.ConfigKey]
-		if !ok {
-			return value, nil
-		}
-		value.Experiment = e
-		value.Data = []byte(result)
-		return value, nil
-	}
-	return value, nil
+func processConditionExperiment(_ context.Context, condition *protoc_cache_server.Condition,
+	_ *experiment.Options) (*Value, error) {
+	return &Value{Data: condition.Value}, nil
 }
 
 func (e *executor) isHitConditionBucketInfo(bucketNum int64, bucketInfo *protoc_cache_server.BucketInfo) bool {
