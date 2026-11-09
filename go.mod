@@ -9,7 +9,7 @@ require (
 	github.com/abetterchoice/protoc_cache_server v0.0.0-20261109025139-ab914611d399
 	github.com/abetterchoice/protoc_dmp_proxy_server v0.0.0-20241211131012-b69df5102634
 	github.com/abetterchoice/protoc_event_server v0.0.0-20240614085823-cafaa745b226
-	github.com/abetterchoice/tagutil v0.0.0-20261109025013-908fc3ef7916
+	github.com/abetterchoice/tagutil v0.0.0-20261109030006-5d68e62386e8
 	github.com/golang/mock v1.6.0
 	github.com/golang/protobuf v1.5.4
 	github.com/google/uuid v1.3.0
