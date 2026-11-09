@@ -441,6 +441,8 @@ github.com/abetterchoice/tagutil v0.0.0-20250422120833-f61c86e633a3 h1:vfNboszmk
 github.com/abetterchoice/tagutil v0.0.0-20250422120833-f61c86e633a3/go.mod h1:Qcc8VFYkO5F6G8KD1P3Xo3d4ylRvlaxqenN0lgUtFNE=
 github.com/abetterchoice/tagutil v0.0.0-20261109025013-908fc3ef7916 h1:qYu1SydW2tZqe017V6/XzPNpfK0D2YACl5txghfPhnc=
 github.com/abetterchoice/tagutil v0.0.0-20261109025013-908fc3ef7916/go.mod h1:Qcc8VFYkO5F6G8KD1P3Xo3d4ylRvlaxqenN0lgUtFNE=
+github.com/abetterchoice/tagutil v0.0.0-20261109030006-5d68e62386e8 h1:hv9MMp/ReCNwOMRvpndvw8ZZFrkdOy0imaMgUVhD5zM=
+github.com/abetterchoice/tagutil v0.0.0-20261109030006-5d68e62386e8/go.mod h1:KPN3YHWRq/0j15Eyo6FYi5V/gv8ZOh0ZAuOpIe4V16U=
 github.com/antihax/optional v1.0.0/go.mod h1:uupD/76wgC+ih3iEmQUL+0Ugr19nfwCT1kdvxnR2qWY=
 github.com/bits-and-blooms/bitset v1.2.0 h1:Kn4yilvwNtMACtf1eYDlG8H77R07mZSPbMjLyS07ChA=
 github.com/bits-and-blooms/bitset v1.2.0/go.mod h1:gIdJ4wp64HaoK2YrL1Q5/N7Y16edYb8uY+O0FJTyyDA=
