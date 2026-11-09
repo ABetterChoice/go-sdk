@@ -4,8 +4,8 @@ package experiment
 import (
 	"context"
 
-	"git.woa.com/tencent_abtest/open-source/abetterchoice-go-sdk/plugin/log"
-	protoccacheserver "git.woa.com/tencent_abtest/protocol/protoc_cache_server"
+	"github.com/abetterchoice/go-sdk/plugin/log"
+	protoccacheserver "github.com/abetterchoice/protoc_cache_server"
 	"github.com/pkg/errors"
 )
 

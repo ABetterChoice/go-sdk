@@ -7,10 +7,10 @@ import (
 	"sort"
 	"testing"
 
-	sdk "git.woa.com/tencent_abtest/open-source/abetterchoice-go-sdk"
-	"git.woa.com/tencent_abtest/open-source/abetterchoice-go-sdk/env"
-	"git.woa.com/tencent_abtest/open-source/abetterchoice-go-sdk/internal/cache"
-	protoccacheserver "git.woa.com/tencent_abtest/protocol/protoc_cache_server"
+	sdk "github.com/abetterchoice/go-sdk"
+	"github.com/abetterchoice/go-sdk/env"
+	"github.com/abetterchoice/go-sdk/internal/cache"
+	protoccacheserver "github.com/abetterchoice/protoc_cache_server"
 )
 
 // 拉测试环境真实下发，验证父子实验分流。
