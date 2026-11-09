@@ -20,6 +20,15 @@ var (
 	Executor = &executor{}
 )
 
+// RemoteConfigNotFoundError indicates that a remote configuration key is absent from the local cache.
+type RemoteConfigNotFoundError struct {
+	Key string
+}
+
+func (e *RemoteConfigNotFoundError) Error() string {
+	return "remoteConfig[" + e.Key + "] not found"
+}
+
 // Value Remote Configuration Values
 type Value struct {
 	Data           []byte
@@ -42,7 +51,7 @@ func (e *executor) GetRemoteConfig(ctx context.Context, projectID string, key st
 	options.Application = application
 	remoteConfig, ok := application.TabConfig.ConfigData.RemoteConfigIndex[key]
 	if !ok || remoteConfig == nil {
-		return nil, errors.Errorf("remoteConfig[%s] not found", key)
+		return nil, &RemoteConfigNotFoundError{Key: key}
 	}
 	return e.getRemoteConfigValue(ctx, remoteConfig, options)
 }

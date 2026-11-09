@@ -14,8 +14,9 @@ import (
 //
 // Resolution order:
 //  1. If key is bound to one or more experiment layers, walk those layers in
-//     ascending order of each layer's earliest experiment ID. Use the first
-//     layer where the user is hit by a real experiment group (IsDefault=false)
+//     ascending order of each layer's earliest experiment ID. A whitelist group
+//     that carries this key wins over an earlier audience hit. Otherwise use the
+//     first layer where the user is hit by a real experiment group (IsDefault=false)
 //     AND that group has configured this key.
 //  2. Otherwise (key is not on any layer, or no layer satisfies the condition
 //     above), fall back to the remote config resolution flow
@@ -57,8 +58,7 @@ func (c *userContext) GetValueByVariantKey(ctx context.Context, projectID string
 	}
 	if len(layerKeys) != 0 {
 		// layerKeys 已按层上"最早实验 ID"升序排序（近似为最早实验的创建顺序）。
-		// 优先使用第一个"命中真实验且实验组配置了 key"的层；
-		// 任意层都不满足时 fallback 到参数本身的远程配置流程
+		// 白名单组优先于更早的受众命中；都没有时 fallback 到参数本身的远程配置流程
 		// （白名单 / holdout / condition / 参数静态默认值）。
 		experimentOpts := make([]ExperimentOption, 0, len(opts)+1)
 		experimentOpts = append(experimentOpts, opts...)
@@ -67,6 +67,9 @@ func (c *userContext) GetValueByVariantKey(ctx context.Context, projectID string
 		if err != nil {
 			return nil, errors.Wrap(err, "GetExperiment")
 		}
+		var audienceLayer string
+		var audienceGroup *Group
+		var audienceData []byte
 		for _, layerKey := range layerKeys {
 			group, ok := experimentResult.Data[layerKey]
 			if !ok || group == nil || group.IsDefault {
@@ -74,15 +77,30 @@ func (c *userContext) GetValueByVariantKey(ctx context.Context, projectID string
 			}
 			data, ok := group.GetBytes(key)
 			if !ok {
-				// 实验组没配该 key，视为该层在该 key 上未命中，继续下一层
 				continue
 			}
-			vr.data = data
-			vr.Detail.GroupKey = group.Key
-			vr.Detail.VariantID = group.ID
-			vr.Detail.ExperimentID = group.ExperimentID
-			vr.Detail.ExperimentKey = group.ExperimentKey
-			vr.Detail.LayerKey = layerKey
+			if group.IsOverrideList {
+				vr.data = data
+				vr.Detail.GroupKey = group.Key
+				vr.Detail.VariantID = group.ID
+				vr.Detail.ExperimentID = group.ExperimentID
+				vr.Detail.ExperimentKey = group.ExperimentKey
+				vr.Detail.LayerKey = layerKey
+				return vr, nil
+			}
+			if audienceGroup == nil {
+				audienceLayer = layerKey
+				audienceGroup = group
+				audienceData = data
+			}
+		}
+		if audienceGroup != nil {
+			vr.data = audienceData
+			vr.Detail.GroupKey = audienceGroup.Key
+			vr.Detail.VariantID = audienceGroup.ID
+			vr.Detail.ExperimentID = audienceGroup.ExperimentID
+			vr.Detail.ExperimentKey = audienceGroup.ExperimentKey
+			vr.Detail.LayerKey = audienceLayer
 			return vr, nil
 		}
 	}

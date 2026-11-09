@@ -21,6 +21,12 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+// TrafficRoutingBitmap contains raw source bucket snapshots for one routing config.
+type TrafficRoutingBitmap struct {
+	SourceExperimentBuckets []byte
+	SourceGroupBuckets      []byte
+}
+
 // Application Locally cached entities
 type Application struct {
 	// Project Code
@@ -36,6 +42,10 @@ type Application struct {
 	GroupIDBucketInfoIndex map[int64]*protoctabcacheserver.BucketInfo
 	// roaring bitmap index, bucketInfo type is bitmap, roaring bitmap object will be pre-built
 	GroupIDRoaringBitmapIndex map[int64]*roaring.Bitmap
+	// Traffic routing bitmap snapshots, keyed by the routing config in the current application snapshot
+	TrafficRoutingBitmapIndex map[*protoctabcacheserver.ExpGroupTrafficRoutingConfig]*TrafficRoutingBitmap
+	// Parent version ID -> owning layer, only used by LIVE_PARENT routing; nil when unconfigured
+	LiveParentSourceLayerIndex map[int64]*protoctabcacheserver.Layer
 	// The layer that accounts for 100% of the overall traffic, key is layerKey, value = specific layer information
 	FullFlowLayerIndex map[string]*protoctabcacheserver.Layer
 	// Experiment layer index, key is layerKey, value is layer
@@ -223,6 +233,14 @@ func refreshApplication(ctx context.Context, projectID string) (*Application, bo
 	if err != nil {
 		return nil, false, errors.Wrap(err, "setupLayerIndex")
 	}
+	err = setupTrafficRoutingBitmapIndex(application)
+	if err != nil {
+		return nil, false, errors.Wrap(err, "setupTrafficRoutingBitmapIndex")
+	}
+	err = setupLiveParentSourceLayerIndex(application)
+	if err != nil {
+		return nil, false, errors.Wrap(err, "setupLiveParentSourceLayerIndex")
+	}
 	err = setupFullFlowLayerIndex(application)
 	if err != nil {
 		return nil, false, errors.Wrap(err, "setupFullFlowLayerIndex")
@@ -352,6 +370,119 @@ func setupLayerIndex(application *Application) error {
 	}
 	application.LayerIndex = layerIndex
 	return nil
+}
+
+func setupTrafficRoutingBitmapIndex(application *Application) error {
+	result := make(map[*protoctabcacheserver.ExpGroupTrafficRoutingConfig]*TrafficRoutingBitmap)
+	seenLayers := make(map[*protoctabcacheserver.Layer]bool)
+	setupLayer := func(layer *protoctabcacheserver.Layer) {
+		if layer == nil || seenLayers[layer] {
+			return
+		}
+		seenLayers[layer] = true
+		if layer.Metadata == nil {
+			// 单个 layer 元数据缺失属数据异常，跳过该 layer，避免影响其他正常实验
+			log.Warnf("traffic routing layer metadata is nil, skip this layer")
+			return
+		}
+		for _, routing := range layer.TrafficRouting {
+			if routing == nil || routing.RoutingMode !=
+				protoctabcacheserver.ExpGroupTrafficRoutingMode_EXP_GROUP_TRAFFIC_ROUTING_MODE_SNAPSHOT_INHERITANCE {
+				continue
+			}
+			if len(routing.SourceExperimentBuckets) == 0 || len(routing.SourceGroupBuckets) == 0 {
+				// 快照桶位图为空属非法配置（由后端下发时检查），
+				// 此处跳过该 routing，运行时将降级走普通 layer hash，不阻断整个项目配置刷新
+				log.Warnf("[layerKey=%s] traffic routing snapshot buckets are empty, skip this routing", layer.Metadata.Key)
+				continue
+			}
+			result[routing] = &TrafficRoutingBitmap{
+				SourceExperimentBuckets: append([]byte(nil), routing.SourceExperimentBuckets...),
+				SourceGroupBuckets:      append([]byte(nil), routing.SourceGroupBuckets...),
+			}
+		}
+	}
+	for _, layer := range application.LayerIndex {
+		setupLayer(layer)
+	}
+	if application.TabConfig.ExperimentData.HoldoutData != nil {
+		for _, layer := range application.TabConfig.ExperimentData.HoldoutData.HoldoutLayerIndex {
+			setupLayer(layer)
+		}
+	}
+	application.TrafficRoutingBitmapIndex = result
+	return nil
+}
+
+// setupLiveParentSourceLayerIndex builds the "parent version ID -> owning layer" index used by
+// LIVE_PARENT routing to locate the parent layer for the parent-hit evaluation.
+//
+// The routing config only carries source_experiment_id (the parent version ID); the parent layer
+// itself is never referenced, so it has to be resolved through this index.
+// The index is built on demand: projects without LIVE_PARENT routing get no index at all, and
+// projects with it only pay for the referenced parent versions rather than every version.
+func setupLiveParentSourceLayerIndex(application *Application) error {
+	sourceGroupIDs := liveParentSourceGroupIDs(application)
+	if len(sourceGroupIDs) == 0 {
+		application.LiveParentSourceLayerIndex = nil
+		return nil
+	}
+	result := make(map[int64]*protoctabcacheserver.Layer, len(sourceGroupIDs))
+	forEachRoutingLayer(application, func(layer *protoctabcacheserver.Layer) {
+		for groupID := range layer.GroupIndex {
+			if _, ok := sourceGroupIDs[groupID]; ok {
+				result[groupID] = layer
+			}
+		}
+	})
+	application.LiveParentSourceLayerIndex = result
+	return nil
+}
+
+// liveParentSourceGroupIDs collects the parent version IDs referenced by LIVE_PARENT routes.
+// A routing config without any usable source version is a config anomaly: it yields no index
+// entry, the parent-hit evaluation always reports "not resolvable", and the route is ignored.
+func liveParentSourceGroupIDs(application *Application) map[int64]struct{} {
+	var ids map[int64]struct{}
+	forEachRoutingLayer(application, func(layer *protoctabcacheserver.Layer) {
+		for _, routing := range layer.TrafficRouting {
+			if routing == nil || routing.RoutingMode !=
+				protoctabcacheserver.ExpGroupTrafficRoutingMode_EXP_GROUP_TRAFFIC_ROUTING_MODE_LIVE_PARENT {
+				continue
+			}
+			for _, route := range routing.Routes {
+				if route == nil || route.SourceExperimentId == 0 {
+					continue
+				}
+				if ids == nil {
+					ids = make(map[int64]struct{})
+				}
+				ids[route.SourceExperimentId] = struct{}{}
+			}
+		}
+	})
+	return ids
+}
+
+// forEachRoutingLayer walks every layer that may carry routing configs, deduplicated by pointer.
+// Holdout layers are included because a parent experiment may live on one.
+func forEachRoutingLayer(application *Application, fn func(layer *protoctabcacheserver.Layer)) {
+	seen := make(map[*protoctabcacheserver.Layer]bool)
+	visit := func(layer *protoctabcacheserver.Layer) {
+		if layer == nil || layer.Metadata == nil || seen[layer] {
+			return
+		}
+		seen[layer] = true
+		fn(layer)
+	}
+	for _, layer := range application.LayerIndex {
+		visit(layer)
+	}
+	if application.TabConfig.ExperimentData.HoldoutData != nil {
+		for _, layer := range application.TabConfig.ExperimentData.HoldoutData.HoldoutLayerIndex {
+			visit(layer)
+		}
+	}
 }
 
 func setupFullFlowLayerIndex(application *Application) error {
@@ -751,6 +882,7 @@ func getLocalCacheWithDefault(projectID string) *Application {
 			ExperimentIDRoaringBitmapIndex: map[int64]*roaring.Bitmap{},
 			GroupIDBucketInfoIndex:         map[int64]*protoctabcacheserver.BucketInfo{},
 			GroupIDRoaringBitmapIndex:      map[int64]*roaring.Bitmap{},
+			TrafficRoutingBitmapIndex:      map[*protoctabcacheserver.ExpGroupTrafficRoutingConfig]*TrafficRoutingBitmap{},
 			FullFlowLayerIndex:             map[string]*protoctabcacheserver.Layer{},
 			LayerIndex:                     map[string]*protoctabcacheserver.Layer{},
 			VariantKeyLayerMap:             map[string][]string{},
@@ -775,8 +907,11 @@ func getNewApplication(curApplication *Application) *Application {
 		ExperimentIDRoaringBitmapIndex: getNewRoaringBitmapIndex(curApplication.ExperimentIDRoaringBitmapIndex),
 		GroupIDBucketInfoIndex:         getNewBucketInfoIndex(curApplication.GroupIDBucketInfoIndex),
 		GroupIDRoaringBitmapIndex:      getNewRoaringBitmapIndex(curApplication.GroupIDRoaringBitmapIndex),
+		TrafficRoutingBitmapIndex:      getNewTrafficRoutingBitmapIndex(curApplication.TrafficRoutingBitmapIndex),
 		FullFlowLayerIndex:             curApplication.FullFlowLayerIndex,
 		LayerIndex:                     curApplication.LayerIndex,
+		// Shared rather than copied, same as LayerIndex: immutable once built from TabConfig
+		LiveParentSourceLayerIndex: curApplication.LiveParentSourceLayerIndex,
 		DMPTagInfo:                     curApplication.DMPTagInfo,
 		VariantKeyLayerMap:             curApplication.VariantKeyLayerMap,
 		PreparedDMPTag:                 curApplication.PreparedDMPTag,
@@ -796,6 +931,16 @@ func getNewBucketInfoIndex(
 
 func getNewRoaringBitmapIndex(curIndex map[int64]*roaring.Bitmap) map[int64]*roaring.Bitmap {
 	var result = make(map[int64]*roaring.Bitmap, len(curIndex))
+	for k, v := range curIndex {
+		result[k] = v
+	}
+	return result
+}
+
+func getNewTrafficRoutingBitmapIndex(
+	curIndex map[*protoctabcacheserver.ExpGroupTrafficRoutingConfig]*TrafficRoutingBitmap,
+) map[*protoctabcacheserver.ExpGroupTrafficRoutingConfig]*TrafficRoutingBitmap {
+	result := make(map[*protoctabcacheserver.ExpGroupTrafficRoutingConfig]*TrafficRoutingBitmap, len(curIndex))
 	for k, v := range curIndex {
 		result[k] = v
 	}

@@ -427,6 +427,8 @@ github.com/abetterchoice/protoc_cache_server v0.0.0-20241211123501-c2418ca7b959 
 github.com/abetterchoice/protoc_cache_server v0.0.0-20241211123501-c2418ca7b959/go.mod h1:BI7+MhlJR/f/mkQZ/ujTCRgZechHJkMytrPf2sNdBwA=
 github.com/abetterchoice/protoc_cache_server v0.0.0-20250422112234-d546680b8d97 h1:YnzNK7IV12M66yFwy15H1TFapzWTTeMEpjbsGYZ8xLc=
 github.com/abetterchoice/protoc_cache_server v0.0.0-20250422112234-d546680b8d97/go.mod h1:BI7+MhlJR/f/mkQZ/ujTCRgZechHJkMytrPf2sNdBwA=
+github.com/abetterchoice/protoc_cache_server v0.0.0-20261109025139-ab914611d399 h1:niIe0Bp+N38CAYQpsojPpsSf83j2Q5isYtzJY8dHPvI=
+github.com/abetterchoice/protoc_cache_server v0.0.0-20261109025139-ab914611d399/go.mod h1:BI7+MhlJR/f/mkQZ/ujTCRgZechHJkMytrPf2sNdBwA=
 github.com/abetterchoice/protoc_dmp_proxy_server v0.0.0-20240612072010-bb3459224bd0/go.mod h1:boAtE8C6Zwf/AzVkRubUwBJenpTp/nDmLAafihic9G8=
 github.com/abetterchoice/protoc_dmp_proxy_server v0.0.0-20241211131012-b69df5102634 h1:XXWysAmfaOk8a9JR3QGEPlkPmNHFUZffXuSOwhNVfLQ=
 github.com/abetterchoice/protoc_dmp_proxy_server v0.0.0-20241211131012-b69df5102634/go.mod h1:2OvVZz9BK22G/NtWGHVlRNr2382bwCMV0YYt2kNUNJ0=
@@ -437,6 +439,8 @@ github.com/abetterchoice/tagutil v0.0.0-20240612073231-fb91e1f4711e h1:GjFMXBN0v
 github.com/abetterchoice/tagutil v0.0.0-20240612073231-fb91e1f4711e/go.mod h1:qvi+tI5iyiAUJENpoVzXxdf8LWPFQLoCq6hv+pu6L4M=
 github.com/abetterchoice/tagutil v0.0.0-20250422120833-f61c86e633a3 h1:vfNboszmkx1FLqT3c2phYXTYTOpqJshnZ3Xt4NcoTaw=
 github.com/abetterchoice/tagutil v0.0.0-20250422120833-f61c86e633a3/go.mod h1:Qcc8VFYkO5F6G8KD1P3Xo3d4ylRvlaxqenN0lgUtFNE=
+github.com/abetterchoice/tagutil v0.0.0-20261109025013-908fc3ef7916 h1:qYu1SydW2tZqe017V6/XzPNpfK0D2YACl5txghfPhnc=
+github.com/abetterchoice/tagutil v0.0.0-20261109025013-908fc3ef7916/go.mod h1:Qcc8VFYkO5F6G8KD1P3Xo3d4ylRvlaxqenN0lgUtFNE=
 github.com/antihax/optional v1.0.0/go.mod h1:uupD/76wgC+ih3iEmQUL+0Ugr19nfwCT1kdvxnR2qWY=
 github.com/bits-and-blooms/bitset v1.2.0 h1:Kn4yilvwNtMACtf1eYDlG8H77R07mZSPbMjLyS07ChA=
 github.com/bits-and-blooms/bitset v1.2.0/go.mod h1:gIdJ4wp64HaoK2YrL1Q5/N7Y16edYb8uY+O0FJTyyDA=

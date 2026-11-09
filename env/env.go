@@ -2,8 +2,11 @@
 package env
 
 import (
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"runtime"
+	"strings"
 )
 
 // Type Environment Type
@@ -42,4 +45,29 @@ const (
 func InvokePath(skip int) string {
 	_, file, line, _ := runtime.Caller(skip)
 	return fmt.Sprintf("%s:%d", file, line)
+}
+
+// TypeBySecretKey parses TAB_DATA_ENV from TAB JWT secret key payload.
+// It returns false when payload has no TAB_DATA_ENV.
+func TypeBySecretKey(secretKey string) (Type, bool) {
+	pairs := strings.Split(secretKey, ".")
+	if len(pairs) != 3 {
+		return "", false
+	}
+	payload, err := base64.RawURLEncoding.DecodeString(pairs[1])
+	if err != nil {
+		return "", false
+	}
+	type tokenPayload struct {
+		TABDataEnv string `json:"TAB_DATA_ENV"`
+	}
+	data := &tokenPayload{}
+	if err = json.Unmarshal(payload, data); err != nil {
+		return "", false
+	}
+	value := strings.ToLower(strings.TrimSpace(data.TABDataEnv))
+	if value == "" {
+		return "", false
+	}
+	return Type(value), true
 }

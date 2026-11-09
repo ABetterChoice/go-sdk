@@ -3,6 +3,8 @@ package abc
 
 import (
 	"context"
+	"encoding/base64"
+	"fmt"
 	"reflect"
 	"testing"
 
@@ -16,6 +18,12 @@ var (
 	projectIDList = []string{"123"}
 	projectID     = "123"
 )
+
+func buildTokenWithEnv(envValue string) string {
+	header := base64.RawURLEncoding.EncodeToString([]byte(`{"alg":"HS256","typ":"JWT"}`))
+	payload := base64.RawURLEncoding.EncodeToString([]byte(fmt.Sprintf(`{"TAB_DATA_ENV":"%s"}`, envValue)))
+	return fmt.Sprintf("%s.%s.signature", header, payload)
+}
 
 func TestGetGlobalConfig(t *testing.T) {
 	tests := []struct {
@@ -192,4 +200,56 @@ func TestInit(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestWithSecretKeyTokenDataEnv(t *testing.T) {
+	testToken := buildTokenWithEnv("test")
+	grayToken := buildTokenWithEnv("gray")
+
+	t.Run("parse TAB_DATA_ENV from token", func(t *testing.T) {
+		config := &internal.GlobalConfig{EnvType: env.TypePrd}
+		err := WithSecretKey(testToken)(config)
+		if err != nil {
+			t.Fatalf("WithSecretKey() error = %v", err)
+		}
+		if config.TokenDataEnv != "test" {
+			t.Fatalf("TokenDataEnv = %s, want %s", config.TokenDataEnv, "test")
+		}
+		if config.EnvType != env.TypePrd {
+			t.Fatalf("EnvType = %s, want %s", config.EnvType, env.TypePrd)
+		}
+	})
+
+	t.Run("keep EnvType unchanged after parsing token env", func(t *testing.T) {
+		config := &internal.GlobalConfig{EnvType: env.TypePrd}
+		if err := WithEnvType(env.TypePrd)(config); err != nil {
+			t.Fatalf("WithEnvType() error = %v", err)
+		}
+		if err := WithSecretKey(testToken)(config); err != nil {
+			t.Fatalf("WithSecretKey() error = %v", err)
+		}
+		if config.EnvType != env.TypePrd {
+			t.Fatalf("EnvType = %s, want %s", config.EnvType, env.TypePrd)
+		}
+	})
+
+	t.Run("accept non standard token data env value", func(t *testing.T) {
+		config := &internal.GlobalConfig{EnvType: env.TypePrd}
+		if err := WithSecretKey(grayToken)(config); err != nil {
+			t.Fatalf("WithSecretKey() error = %v", err)
+		}
+		if config.TokenDataEnv != "gray" {
+			t.Fatalf("TokenDataEnv = %s, want %s", config.TokenDataEnv, "gray")
+		}
+	})
+
+	t.Run("clear stale token data env when parsing fails", func(t *testing.T) {
+		config := &internal.GlobalConfig{TokenDataEnv: "3"}
+		if err := WithSecretKey("invalid_token")(config); err != nil {
+			t.Fatalf("WithSecretKey() error = %v", err)
+		}
+		if config.TokenDataEnv != "" {
+			t.Fatalf("TokenDataEnv = %s, want empty", config.TokenDataEnv)
+		}
+	})
 }

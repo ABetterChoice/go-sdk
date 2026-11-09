@@ -11,6 +11,8 @@ import (
 	"sort"
 	"testing"
 
+	"github.com/abetterchoice/go-sdk/internal"
+	"github.com/abetterchoice/go-sdk/internal/cache"
 	"github.com/abetterchoice/go-sdk/internal/experiment"
 	"github.com/abetterchoice/go-sdk/testdata"
 	protoccacheserver "github.com/abetterchoice/protoc_cache_server"
@@ -145,11 +147,104 @@ func Test_userContext_GetRemoteConfig(t *testing.T) {
 			// assert.Equalf(t, tt.wantResult, gotResult, "GetRemoteConfig(%v, %v, %v)", tt.args.ctx, tt.args.projectID, tt.args.key)
 		})
 	}
+
+	t.Run("resolve token environment key before lookup", func(t *testing.T) {
+		application := cache.GetApplication(projectID)
+		if application == nil {
+			t.Fatal("application not initialized")
+		}
+
+		configIndex := application.TabConfig.ConfigData.RemoteConfigIndex
+		configIndex["remoteConfig1__env_3"] = configIndex["remoteConfig1"]
+		defer delete(configIndex, "remoteConfig1__env_3")
+
+		oldTokenDataEnv := internal.C.TokenDataEnv
+		internal.C.TokenDataEnv = "3"
+		defer func() {
+			internal.C.TokenDataEnv = oldTokenDataEnv
+		}()
+
+		result, err := (&userContext{}).GetRemoteConfig(
+			context.Background(), projectID, "remoteConfig1", forTestConfigOption())
+		assert.NoError(t, err)
+		assert.Equal(t, "remoteConfig1", result.Key)
+		assert.Equal(t, "remoteConfig1-condition1", result.String())
+	})
+
+	t.Run("hide resolved key in not found error", func(t *testing.T) {
+		oldTokenDataEnv := internal.C.TokenDataEnv
+		internal.C.TokenDataEnv = "3"
+		defer func() {
+			internal.C.TokenDataEnv = oldTokenDataEnv
+		}()
+
+		_, err := (&userContext{}).GetRemoteConfig(
+			context.Background(), projectID, "missingConfig", forTestConfigOption())
+		assert.EqualError(t, err,
+			"remoteConfig[missingConfig] not found in data environment[3]")
+		assert.NotContains(t, err.Error(), "missingConfig__env_3")
+	})
 }
 
 func forTestConfigOption() ConfigOption {
 	return func(options *experiment.Options) error {
 		return nil
+	}
+}
+
+func TestResolveRemoteConfigKey(t *testing.T) {
+	tests := []struct {
+		name         string
+		key          string
+		tokenDataEnv string
+		want         string
+	}{
+		{name: "missing env", key: "age", want: "age"},
+		{name: "production env", key: "age", tokenDataEnv: "0", want: "age"},
+		{name: "pre-release env", key: "age", tokenDataEnv: "1", want: "age__env_1"},
+		{name: "test env", key: "age", tokenDataEnv: "2", want: "age__env_2"},
+		{name: "development env", key: "age", tokenDataEnv: "3", want: "age__env_3"},
+		{name: "unknown env", key: "age", tokenDataEnv: "gray", want: "age"},
+		{name: "already resolved", key: "age__env_3", tokenDataEnv: "3", want: "age__env_3"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, resolveRemoteConfigKey(tt.key, tt.tokenDataEnv))
+		})
+	}
+}
+
+func TestRemoteConfigNotFoundError(t *testing.T) {
+	tests := []struct {
+		name         string
+		key          string
+		tokenDataEnv string
+		want         string
+	}{
+		{
+			name: "missing environment",
+			key:  "age",
+			want: "remoteConfig[age] not found",
+		},
+		{
+			name:         "production environment",
+			key:          "age",
+			tokenDataEnv: "0",
+			want:         "remoteConfig[age] not found in data environment[0]",
+		},
+		{
+			name:         "development environment",
+			key:          "age",
+			tokenDataEnv: "3",
+			want:         "remoteConfig[age] not found in data environment[3]",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.EqualError(t, remoteConfigNotFoundError(tt.key, tt.tokenDataEnv), tt.want)
+		})
 	}
 }
 

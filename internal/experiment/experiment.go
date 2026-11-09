@@ -446,6 +446,15 @@ func (e *executor) defaultSystemGlobalGroupID(options *Options) int64 {
 // GetLayerExperiment Get the set of experiment information that the user hits under the conditions specified by options
 func (e *executor) GetLayerExperiment(ctx context.Context, layer *protoccacheserver.Layer,
 	options *Options) (*Experiment, error) {
+	return e.getLayerExperimentInternal(ctx, layer, options, nil)
+}
+
+// getLayerExperimentInternal decides a single layer.
+// parentCtx is the recursion state of the parent-hit evaluation: nil means this call is the
+// decision entry point, non-nil means this layer is being evaluated as a parent and the stack
+// is carried along for cycle detection (see liveParentCtx).
+func (e *executor) getLayerExperimentInternal(ctx context.Context, layer *protoccacheserver.Layer,
+	options *Options, parentCtx *liveParentCtx) (*Experiment, error) {
 	overrideGroup := e.getLayerOverrideExperiment(layer, options)
 	if overrideGroup != nil {
 		return overrideGroup, nil
@@ -454,8 +463,33 @@ func (e *executor) GetLayerExperiment(ctx context.Context, layer *protoccacheser
 	if err != nil {
 		return nil, errors.Wrap(err, "checkCaughtByHoldout")
 	}
+	// Holdout outranks parent-child: a user held out must stay on the control version and must
+	// not be routed into a child experiment.
 	if holdoutExp != nil && !holdoutExp.IsDefault && holdoutExp.IsControl {
 		return holdoutExp, nil
+	}
+	if len(layer.TrafficRouting) > 0 {
+		experiment, matched, err := e.getTrafficRoutingExperiment(ctx, layer, options)
+		if err != nil {
+			return nil, errors.Wrap(err, "getTrafficRoutingExperiment")
+		}
+		if matched {
+			return experiment, nil
+		}
+		experiment, governed, err := e.getLiveParentExperiment(ctx, layer, options, parentCtx)
+		if err != nil {
+			return nil, errors.Wrap(err, "getLiveParentExperiment")
+		}
+		if experiment != nil {
+			return experiment, nil
+		}
+		if governed {
+			// This layer only carries child experiments gated by LIVE_PARENT routing, so missing
+			// the parent means not entering the child. Returning nil lets the caller fall back to
+			// the layer default; running the ordinary hash instead would assign the user into a
+			// child group and defeat the routing.
+			return nil, nil
+		}
 	}
 	switch layer.Metadata.HashType {
 	case protoccacheserver.HashType_HASH_TYPE_DOUBLE:
@@ -480,6 +514,92 @@ func (e *executor) getLayerOverrideExperiment(layer *protoccacheserver.Layer, op
 		}
 	}
 	return nil
+}
+
+func (e *executor) getTrafficRoutingExperiment(ctx context.Context, layer *protoccacheserver.Layer,
+	options *Options) (*Experiment, bool, error) {
+	hashSource := getHashSource(layer.Metadata.UnitIdType, options)
+	layerBucketNum := hashutil.GetBucketNum(layer.Metadata.HashMethod,
+		hashSource, layer.Metadata.HashSeed, layer.Metadata.BucketSize)
+	layerKey := layer.Metadata.Key
+	for _, routing := range layer.TrafficRouting {
+		if routing == nil || routing.RoutingMode !=
+			protoccacheserver.ExpGroupTrafficRoutingMode_EXP_GROUP_TRAFFIC_ROUTING_MODE_SNAPSHOT_INHERITANCE {
+			continue
+		}
+		bitmaps, ok := options.Application.TrafficRoutingBitmapIndex[routing]
+		if !ok || bitmaps == nil || len(bitmaps.SourceExperimentBuckets) == 0 || len(bitmaps.SourceGroupBuckets) == 0 {
+			// 位图缺失：无法判断源流量继承，降级走普通 layer hash 分流
+			log.Warnf("traffic routing bitmap not found, layerKey=%s fallback to normal layer hash", layerKey)
+			continue
+		}
+		if !isHitTrafficRoutingBucket(bitmaps.SourceExperimentBuckets, layerBucketNum) {
+			continue
+		}
+		sourceHashInfo := routing.SourceHashInfo
+		if sourceHashInfo == nil || sourceHashInfo.HashWidth == 0 {
+			// 源 hash 信息非法：降级走普通 layer hash 分流
+			log.Warnf("invalid source hash info, layerKey=%s fallback to normal layer hash", layerKey)
+			continue
+		}
+		bitmapWidth := int64(len(bitmaps.SourceGroupBuckets)) * 8
+		sourceHashWidth := int64(sourceHashInfo.HashWidth)
+		if sourceHashWidth > bitmapWidth {
+			sourceHashWidth = bitmapWidth
+		}
+		sourceGroupBucketNum := hashutil.GetBucketNum(
+			protoccacheserver.HashMethod(sourceHashInfo.HashMethod),
+			hashSource, sourceHashInfo.HashSeed, sourceHashWidth)
+		if !isHitTrafficRoutingBucket(bitmaps.SourceGroupBuckets, sourceGroupBucketNum) {
+			continue
+		}
+		targetExperiment, ok := layer.ExperimentIndex[routing.TargetExpGroupId]
+		if !ok || targetExperiment == nil {
+			// 目标实验不在本 layer：降级走普通 layer hash 分流（由后端下发配置保证正确性）
+			log.Warnf("target experimentID[%d] not found, layerKey=%s fallback to normal layer hash", routing.TargetExpGroupId, layerKey)
+			continue
+		}
+		allowedGroupIDs := make(map[int64]bool)
+		for _, route := range routing.Routes {
+			if route == nil {
+				continue
+			}
+			for _, targetGroupID := range route.TargetExperimentIds {
+				if targetExperiment.GroupIdIndex[targetGroupID] {
+					allowedGroupIDs[targetGroupID] = true
+				}
+			}
+		}
+		if len(allowedGroupIDs) == 0 {
+			// 无允许路由的目标组：降级走普通 layer hash 分流
+			log.Warnf("target experimentID[%d] has no routed groups, layerKey=%s fallback to normal layer hash", routing.TargetExpGroupId, layerKey)
+			continue
+		}
+		routedExperiment := &protoccacheserver.Experiment{
+			HashMethod:   targetExperiment.HashMethod,
+			HashSeed:     targetExperiment.HashSeed,
+			Id:           targetExperiment.Id,
+			Key:          targetExperiment.Key,
+			BucketSize:   targetExperiment.BucketSize,
+			IssueType:    targetExperiment.IssueType,
+			GroupIdIndex: allowedGroupIDs,
+		}
+		experiment, err := e.getExperimentGroup(ctx, routedExperiment, layer, options)
+		return experiment, true, err
+	}
+	return nil, false, nil
+}
+
+func isHitTrafficRoutingBucket(bitmap []byte, bucketNum int64) bool {
+	if bucketNum <= 0 {
+		return false
+	}
+	bucketIndex := bucketNum - 1
+	byteIndex := bucketIndex / 8
+	if byteIndex >= int64(len(bitmap)) {
+		return false
+	}
+	return bitmap[byteIndex]&(1<<uint(bucketIndex%8)) != 0
 }
 
 func (e *executor) getSingleHashLayerExperiment(ctx context.Context, layer *protoccacheserver.Layer,
